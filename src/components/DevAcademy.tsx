@@ -379,11 +379,12 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
 
   const SUPABASE_SCHEMA_SQL = `-- Velours & Verse Production Supabase Schema
 -- 1. Create Profiles table
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  email TEXT NOT NULL,
   display_name TEXT NOT NULL,
   penpal_id TEXT UNIQUE NOT NULL,
-  avatar_url TEXT,
+  avatar TEXT,
   bio TEXT,
   favorite_drink TEXT,
   favorite_quote TEXT,
@@ -392,34 +393,56 @@ CREATE TABLE public.profiles (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Create Writings table
-CREATE TABLE public.writings (
+-- Profiles Row Level Security (RLS)
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+CREATE POLICY "Public profiles are viewable by everyone"
+  ON public.profiles FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+CREATE POLICY "Users can insert their own profile"
+  ON public.profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+CREATE POLICY "Users can update their own profile"
+  ON public.profiles FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+-- 2. Create Pieces table
+CREATE TABLE IF NOT EXISTS public.pieces (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   author_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
-  type TEXT CHECK (type IN ('poem', 'story', 'prose', 'journal')),
+  type TEXT CHECK (type IN ('poem', 'story', 'prose', 'journal', 'letter')),
   status TEXT CHECK (status IN ('draft', 'published', 'penpals')) DEFAULT 'draft',
   mood_tags TEXT[] DEFAULT '{}',
   card_tint TEXT DEFAULT 'default',
-  stars_count INTEGER DEFAULT 0,
+  stars INTEGER DEFAULT 0,
   word_count INTEGER DEFAULT 0,
   read_time_minutes INTEGER DEFAULT 1,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Row Level Security (RLS)
-ALTER TABLE public.writings ENABLE ROW LEVEL SECURITY;
+-- Pieces Row Level Security (RLS)
+ALTER TABLE public.pieces ENABLE ROW LEVEL SECURITY;
 
--- Public can view published writings
-CREATE POLICY "Public can view published writings"
-  ON public.writings FOR SELECT
+DROP POLICY IF EXISTS "Public can view published pieces" ON public.pieces;
+CREATE POLICY "Public can view published pieces"
+  ON public.pieces FOR SELECT
   USING (status = 'published' OR auth.uid() = author_id);
 
--- Authors have complete access to their own writings
-CREATE POLICY "Authors full access to own writings"
-  ON public.writings FOR ALL
+DROP POLICY IF EXISTS "Authors full access to own pieces" ON public.pieces;
+CREATE POLICY "Authors full access to own pieces"
+  ON public.pieces FOR ALL
+  TO authenticated
   USING (auth.uid() = author_id);`;
 
   const VERCEL_CONFIG_JSON = `{
