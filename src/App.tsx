@@ -39,7 +39,7 @@ import {
 
 function MainApp() {
   const { theme, themeId, activeTokens } = useTheme();
-  const { currentUser, isAuthenticated, isDeveloper } = useAuth();
+  const { currentUser, isAuthenticated, isAuthLoading, isDeveloper } = useAuth();
 
   // Navigation and Modal states (Clean URL routing)
   const getInitialRoute = (): AppView => {
@@ -82,6 +82,14 @@ function MainApp() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // When user completes Google OAuth or hash contains access_token, route to feed seamlessly
+  useEffect(() => {
+    if (isAuthenticated && (currentView === 'auth' || window.location.hash.includes('access_token'))) {
+      setCurrentView('feed');
+      window.history.replaceState(null, '', '/feed');
+    }
+  }, [isAuthenticated, currentView]);
   const [pieces, setPieces] = useState<WritingPiece[]>(() => StorageService.getPieces());
   const [selectedPieceForReader, setSelectedPieceForReader] = useState<WritingPiece | null>(null);
   const [pieceToEdit, setPieceToEdit] = useState<WritingPiece | null>(null);

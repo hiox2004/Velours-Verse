@@ -46,7 +46,7 @@ export const ANONYMOUS_GUEST_PROFILE: UserProfile = {
 export const SEED_USERS: UserProfile[] = [
   {
     id: 'user_admin',
-    email: SUPER_ADMIN_EMAIL,
+    email: 'aura.dev@veloursverse.app',
     displayName: 'Aura Dev',
     penpalId: 'PEN-8V2M9',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -218,7 +218,7 @@ Notes to self:
     authorId: 'user_admin',
     authorDisplayName: 'Aura Dev',
     authorPenpalId: 'PEN-8V2M9',
-    authorEmail: SUPER_ADMIN_EMAIL,
+    authorEmail: 'aura.dev@veloursverse.app',
     authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     createdAt: '2026-10-13T04:15:00Z',
     updatedAt: '2026-10-13T04:40:00Z',
@@ -441,7 +441,7 @@ export class StorageService {
   public static resetToDefaultData(): void {
     try {
       localStorage.setItem(STORAGE_KEYS.PIECES, JSON.stringify(SEED_PIECES));
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(SEED_USERS[0]));
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(ANONYMOUS_GUEST_PROFILE));
       localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(SEED_USERS));
       localStorage.setItem(STORAGE_KEYS.AUTHOR_NOTE, JSON.stringify(DEFAULT_AUTHOR_NOTE));
       localStorage.removeItem(STORAGE_KEYS.NOTE_DISMISSED);

@@ -62,7 +62,7 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
   onDeletePiece,
   onOpenPiece
 }) => {
-  const { currentUser, isDeveloper, devRoster, addDevEmail, removeDevEmail, loginWithGoogle, loginAs } = useAuth();
+  const { currentUser, isAuthenticated, isDeveloper, devRoster, addDevEmail, removeDevEmail, signInWithGoogle } = useAuth();
   const { mode, theme, themeId } = useTheme();
 
   const cardStyle = mode === 'light' ? theme.light.card : theme.dark.card;
@@ -224,9 +224,8 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
   };
 
   const handleSwitchToUser = (user: UserProfile) => {
-    loginAs(user);
     setSelectedUserForModal(null);
-    setDispatchSuccessMessage(`Switched active session to ${user.displayName} (${user.email})! You are now viewing the app as this user.`);
+    setDispatchSuccessMessage(`Inspecting dossier record for ${user.displayName} (${user.email}).`);
     setTimeout(() => setDispatchSuccessMessage(null), 4000);
   };
 
@@ -342,12 +341,21 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => loginWithGoogle(SUPER_ADMIN_EMAIL, 'Lead Developer')}
-          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-zinc-950 dark:bg-white dark:text-zinc-950 shadow-md hover:opacity-90 active:scale-95 transition-all border border-zinc-800 dark:border-white"
-        >
-          Authenticate as {SUPER_ADMIN_EMAIL}
-        </button>
+        {isAuthenticated ? (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-3 rounded-xl border border-rose-300 dark:border-rose-800">
+              Signed in as <span className="font-mono">{currentUser.email}</span>. Only <span className="font-mono">{SUPER_ADMIN_EMAIL}</span> holds developer clearance.
+            </p>
+          </div>
+        ) : (
+          <button
+            onClick={() => signInWithGoogle()}
+            className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-black dark:bg-white dark:text-black shadow-md hover:scale-105 active:scale-95 transition-all border-2 border-black dark:border-white flex items-center gap-2 mx-auto"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Sign In with Administrator Google Account</span>
+          </button>
+        )}
       </div>
     );
   }

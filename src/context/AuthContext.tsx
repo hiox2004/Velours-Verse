@@ -1,18 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types/writing';
-import { StorageService, SUPER_ADMIN_EMAIL, SEED_USERS } from '../services/storage';
+import { StorageService, SUPER_ADMIN_EMAIL, ANONYMOUS_GUEST_PROFILE } from '../services/storage';
 import { supabase } from '../services/supabase';
 import { SupabaseService } from '../services/supabaseService';
 
 interface AuthContextType {
   currentUser: UserProfile;
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
   isDeveloper: boolean;
   isSuperAdmin: boolean;
   devRoster: string[];
-  loginAs: (user: UserProfile) => void;
   signInWithGoogle: () => Promise<void>;
-  loginWithGoogle: (email: string, displayName?: string) => void;
   logout: () => Promise<void>;
   updateProfile: (updated: Partial<UserProfile>) => Promise<void>;
   addPenpal: (penpalId: string) => Promise<{ success: boolean; message: string }>;
@@ -34,13 +33,14 @@ const generatePenpalId = (): string => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => StorageService.getActiveProfile());
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [devRoster, setDevRoster] = useState<string[]>(() => StorageService.getDevRoster());
 
   const isAuthenticated = Boolean(currentUser && currentUser.id && currentUser.id !== 'guest');
   const normalizedEmail = (currentUser?.email || '').toLowerCase().trim();
-  // Developer Academy is strictly restricted to hiox2004@gmail.com
+  // Developer Academy is strictly restricted to hiox2004@gmail.com with verified authentication
   const isDeveloper = Boolean(
-    isAuthenticated && (normalizedEmail.startsWith('hiox2004@gmail.com') || normalizedEmail === 'hiox2004')
+    isAuthenticated && normalizedEmail === SUPER_ADMIN_EMAIL.toLowerCase()
   );
   const isSuperAdmin = isDeveloper;
 
@@ -49,17 +49,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         await syncUserSession(session.user);
+      } else {
+        // Enforce guest profile when no active Supabase session exists
+        const guest = ANONYMOUS_GUEST_PROFILE;
+        setCurrentUser(guest);
+        StorageService.saveActiveProfile(guest);
+        localStorage.removeItem('velours_user_profile_v1');
       }
+      setIsAuthLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         await syncUserSession(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        const guest = StorageService.getActiveProfile();
+      } else if (event === 'SIGNED_OUT' || !session) {
+        const guest = ANONYMOUS_GUEST_PROFILE;
         setCurrentUser(guest);
+        StorageService.saveActiveProfile(guest);
         localStorage.removeItem('velours_user_profile_v1');
       }
+      setIsAuthLoading(false);
     });
 
     return () => {
@@ -68,13 +77,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const syncUserSession = async (user: any) => {
-    const email = user.email || '';
+    const email = (user.email || '').toLowerCase().trim();
     const metadata = user.user_metadata || {};
     const existing = await SupabaseService.getProfile(user.id);
 
+    const isSuper = email === SUPER_ADMIN_EMAIL.toLowerCase();
+
     if (existing) {
-      setCurrentUser(existing);
-      StorageService.saveActiveProfile(existing);
+      const merged: UserProfile = {
+        ...existing,
+        email,
+        displayName: existing.displayName || metadata.full_name || metadata.name || email.split('@')[0],
+        avatar: existing.avatar || metadata.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${email}&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4`,
+        role: isSuper ? 'developer' : 'writer'
+      };
+      setCurrentUser(merged);
+      StorageService.saveActiveProfile(merged);
     } else {
       const newProfile: UserProfile = {
         id: user.id,
@@ -87,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         favoriteQuote: '“I write to find out what I’m talking about.” — Edward Albee',
         writingGoalWords: 500,
         penpalIds: [],
-        role: email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ? 'developer' : 'writer',
+        role: isSuper ? 'developer' : 'writer',
         createdAt: new Date().toISOString()
       };
 
@@ -128,43 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Sign in error:', err);
     }
-  };
-
-  const loginAs = (user: UserProfile) => {
-    setCurrentUser(user);
-    StorageService.saveActiveProfile(user);
-  };
-
-  const loginWithGoogle = (email: string, displayName?: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const allUsers = StorageService.getAllUsers();
-    const existing = allUsers.find(u => u.email.toLowerCase() === cleanEmail);
-
-    if (existing) {
-      setCurrentUser(existing);
-      StorageService.saveActiveProfile(existing);
-      return;
-    }
-
-    const defaultName = displayName || (cleanEmail.split('@')[0].charAt(0).toUpperCase() + cleanEmail.split('@')[0].slice(1));
-    const newProfile: UserProfile = {
-      id: `usr_${Date.now()}`,
-      email: cleanEmail,
-      displayName: defaultName,
-      penpalId: generatePenpalId(),
-      avatar: `https://api.dicebear.com/7.x/notionists/svg?seed=${cleanEmail}&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4`,
-      bio: 'New creative writer on Velours & Verse. Drafting poems and daily thoughts.',
-      favoriteDrink: 'Vanilla Chai Latte',
-      favoriteQuote: '“I write to find out what I’m talking about.” — Edward Albee',
-      writingGoalWords: 500,
-      penpalIds: [],
-      role: devRoster.some(e => e.toLowerCase() === cleanEmail) ? 'developer' : 'writer',
-      createdAt: new Date().toISOString()
-    };
-
-    setCurrentUser(newProfile);
-    StorageService.saveActiveProfile(newProfile);
-    StorageService.updateUserInDirectory(newProfile);
   };
 
   const logout = async () => {
@@ -245,12 +226,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         currentUser,
         isAuthenticated,
+        isAuthLoading,
         isDeveloper,
         isSuperAdmin,
         devRoster,
-        loginAs,
         signInWithGoogle,
-        loginWithGoogle,
         logout,
         updateProfile,
         addPenpal,
