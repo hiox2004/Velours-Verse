@@ -141,7 +141,7 @@ export class SupabaseService {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error || !data) return null;
 
@@ -177,18 +177,24 @@ export class SupabaseService {
    */
   public static async upsertProfile(profile: Partial<UserProfile> & { id: string; email: string }): Promise<void> {
     try {
-      await supabase.from('profiles').upsert({
+      const payload: Record<string, any> = {
         id: profile.id,
         email: profile.email,
         display_name: profile.displayName || profile.email.split('@')[0],
-        penpal_id: profile.penpalId,
-        avatar: profile.avatar,
-        bio: profile.bio,
-        favorite_drink: profile.favoriteDrink,
-        favorite_quote: profile.favoriteQuote,
-        writing_goal_words: profile.writingGoalWords,
+        avatar: profile.avatar || '',
+        bio: profile.bio || '',
+        favorite_drink: profile.favoriteDrink || 'Tea',
+        favorite_quote: profile.favoriteQuote || '',
+        writing_goal_words: profile.writingGoalWords || 500,
         role: profile.role || 'writer'
-      });
+      };
+      if (profile.penpalId) {
+        payload.penpal_id = profile.penpalId;
+      }
+      const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+      if (error) {
+        console.warn('Upsert profile error:', error.message);
+      }
     } catch (err) {
       console.warn('Upsert profile error:', err);
     }
@@ -204,7 +210,7 @@ export class SupabaseService {
         .from('profiles')
         .select('display_name, penpal_id')
         .eq('penpal_id', targetPenpalId)
-        .single();
+        .maybeSingle();
 
       if (targetError || !targetProfile) {
         return { success: false, message: `No writer found with Penpal ID "${targetPenpalId}".` };

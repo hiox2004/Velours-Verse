@@ -1838,7 +1838,7 @@ CREATE POLICY "Authors full access to own writings"
                       <div className="flex items-center gap-1.5 text-[11px] font-bold text-black dark:text-white bg-black/5 dark:bg-white/5 px-2 py-1 rounded-lg border border-black/10 dark:border-white/10">
                         <Calendar className="w-3.5 h-3.5 text-black/50 dark:text-zinc-400" />
                         <span>
-                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Pre-seeded account'}
+                          {user.createdAt ? new Date(user.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Pre-seeded account'}
                         </span>
                       </div>
                     </div>

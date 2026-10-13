@@ -46,32 +46,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Listen for Supabase Auth state changes
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    let isMounted = true;
+    let syncingUserId: string | null = null;
+
+    const handleSession = async (session: any) => {
+      if (!isMounted) return;
       if (session?.user) {
-        await syncUserSession(session.user);
+        if (syncingUserId === session.user.id) return;
+        syncingUserId = session.user.id;
+        try {
+          await syncUserSession(session.user);
+        } finally {
+          syncingUserId = null;
+        }
       } else {
-        // Enforce guest profile when no active Supabase session exists
         const guest = ANONYMOUS_GUEST_PROFILE;
         setCurrentUser(guest);
         StorageService.saveActiveProfile(guest);
         localStorage.removeItem('velours_user_profile_v1');
       }
-      setIsAuthLoading(false);
+      if (isMounted) {
+        setIsAuthLoading(false);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      await handleSession(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await syncUserSession(session.user);
-      } else if (event === 'SIGNED_OUT' || !session) {
-        const guest = ANONYMOUS_GUEST_PROFILE;
-        setCurrentUser(guest);
-        StorageService.saveActiveProfile(guest);
-        localStorage.removeItem('velours_user_profile_v1');
-      }
-      setIsAuthLoading(false);
-    });
+    // Fallback safety timeout so app is never stuck in loading state
+    const timeout = setTimeout(() => {
+      if (isMounted) setIsAuthLoading(false);
+    }, 2000);
 
     return () => {
+      isMounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
