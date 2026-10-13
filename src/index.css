@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-serif-literary {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-display-chic {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-sans-clean {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Custom scrollbars for aesthetic feeling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.4);
+}
+
+/* High-fidelity publication grade print stylesheet */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+    font-size: 12pt;
+    line-height: 1.6;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-container {
+    width: 100% !important;
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    padding: 2cm !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .print-title {
+    font-family: 'Playfair Display', Georgia, serif !important;
+    font-size: 26pt !important;
+    margin-bottom: 0.5cm !important;
+    color: #000000 !important;
+  }
+
+  .print-body {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-size: 14pt !important;
+    line-height: 1.8 !important;
+    white-space: pre-wrap !important;
+  }
+}
