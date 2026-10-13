@@ -19,6 +19,8 @@ import { ThemeMotifIcon, ThemeHeroIllustration } from './components/ThemeIllustr
 import { AuthorNoteModal } from './components/AuthorNoteModal';
 import { StorageService } from './services/storage';
 import { SupabaseService } from './services/supabaseService';
+import { LandingPage } from './components/LandingPage';
+import { AuthPage } from './components/AuthPage';
 import {
   WritingPiece,
   AppView,
@@ -39,8 +41,39 @@ function MainApp() {
   const { theme, themeId, activeTokens } = useTheme();
   const { currentUser, isDeveloper } = useAuth();
 
-  // Navigation and Modal states
-  const [currentView, setCurrentView] = useState<AppView>('feed');
+  // Navigation and Modal states (Clean URL routing)
+  const getInitialRoute = (): AppView => {
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (path === 'feed') return 'feed';
+    if (path === 'penpals') return 'penpals';
+    if (path === 'widgets') return 'widgets';
+    if (path === 'auth') return 'auth';
+    if (path === 'dev' || path === 'dev_academy') return 'dev_academy';
+    return 'landing'; // Default root '/' lands on bespoke Sanctuary page
+  };
+
+  const [currentView, setCurrentView] = useState<AppView>(getInitialRoute);
+
+  const navigateTo = (view: AppView) => {
+    // Access control: Dev Academy strictly restricted to hiox2004@gmail.com
+    if (view === 'dev_academy' && !isDeveloper) {
+      alert('Access restricted: Developer Academy is only accessible to administrator (hiox2004).');
+      return;
+    }
+
+    setCurrentView(view);
+    const targetPath = view === 'landing' ? '/' : `/${view === 'dev_academy' ? 'dev' : view}`;
+    window.history.pushState(null, '', targetPath);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getInitialRoute());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [pieces, setPieces] = useState<WritingPiece[]>(() => StorageService.getPieces());
   const [selectedPieceForReader, setSelectedPieceForReader] = useState<WritingPiece | null>(null);
   const [pieceToEdit, setPieceToEdit] = useState<WritingPiece | null>(null);
@@ -235,7 +268,7 @@ function MainApp() {
       {/* Top Header & Mobile Bottom Tab Navigation */}
       <Navigation
         currentView={currentView}
-        onSelectView={v => setCurrentView(v)}
+        onSelectView={v => navigateTo(v)}
         onOpenNewPiece={() => {
           setPieceToEdit(null);
           setIsEditorOpen(true);
@@ -495,8 +528,48 @@ function MainApp() {
           />
         )}
 
-        {/* View: Developer God Mode & Academy */}
-        {currentView === 'dev_academy' && (
+        {/* View: Landing Sanctuary Homepage */}
+        {currentView === 'landing' && (
+          <LandingPage
+            onEnterSanctuary={() => navigateTo('auth')}
+            onExploreFeed={() => navigateTo('feed')}
+            onOpenPiecePreview={(title, excerpt, author) => {
+              setSelectedPieceForReader({
+                id: `snippet-${Date.now()}`,
+                title,
+                content: excerpt,
+                type: 'poem',
+                status: 'published',
+                authorId: 'curated',
+                authorDisplayName: author,
+                authorPenpalId: 'CLASSIC',
+                authorEmail: '',
+                authorAvatar: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                stars: 99,
+                starredByMe: false,
+                comments: [],
+                moodTags: ['Anthology', 'Classic Verse'],
+                cardTint: 'default',
+                wordCount: excerpt.split(/\s+/).length,
+                readTimeMinutes: 1,
+                synced: true
+              });
+            }}
+          />
+        )}
+
+        {/* View: Authentication & Registration */}
+        {currentView === 'auth' && (
+          <AuthPage
+            onBack={() => navigateTo('landing')}
+            onSuccess={() => navigateTo('feed')}
+          />
+        )}
+
+        {/* View: Developer God Mode & Academy (Strictly restricted to hiox2004) */}
+        {currentView === 'dev_academy' && isDeveloper && (
           <DevAcademy
             pieces={pieces}
             onDeletePiece={handleDeletePiece}

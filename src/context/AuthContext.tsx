@@ -36,8 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [devRoster, setDevRoster] = useState<string[]>(() => StorageService.getDevRoster());
 
   const normalizedEmail = (currentUser.email || '').toLowerCase().trim();
-  const isDeveloper = devRoster.some(e => e.toLowerCase().trim() === normalizedEmail);
-  const isSuperAdmin = normalizedEmail === SUPER_ADMIN_EMAIL.toLowerCase();
+  // Developer Academy is strictly restricted to hiox2004@gmail.com
+  const isDeveloper = normalizedEmail.startsWith('hiox2004@gmail.com') || normalizedEmail === 'hiox2004';
+  const isSuperAdmin = isDeveloper;
 
   // Listen for Supabase Auth state changes
   useEffect(() => {

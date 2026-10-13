@@ -63,6 +63,6 @@ export interface AuthorNote {
   active: boolean;
 }
 
-export type AppView = 'feed' | 'compose' | 'penpals' | 'widgets' | 'dev_academy';
+export type AppView = 'landing' | 'feed' | 'compose' | 'penpals' | 'widgets' | 'dev_academy' | 'auth';
 
 export type FeedFilterStatus = 'all' | 'published' | 'drafts' | 'penpals' | 'starred';

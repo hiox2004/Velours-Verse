@@ -81,6 +81,16 @@ export const Navigation: React.FC<NavigationProps> = ({
           {/* Zone 2: Navigation Links (Single-Line, 4-5 Items, Solid Black Text in Light Mode) */}
           <nav className="flex items-center gap-3.5 lg:gap-7 text-xs lg:text-sm font-black text-black dark:text-zinc-200">
             <button
+              onClick={() => onSelectView('landing')}
+              className={`hover:opacity-75 transition-all whitespace-nowrap shrink-0 pb-1 ${
+                currentView === 'landing'
+                  ? 'text-black dark:text-white border-b-3 border-black dark:border-white font-black'
+                  : 'text-black/80 dark:text-zinc-300 font-bold'
+              }`}
+            >
+              Sanctuary
+            </button>
+            <button
               onClick={() => onSelectView('feed')}
               className={`hover:opacity-75 transition-all whitespace-nowrap shrink-0 pb-1 ${
                 currentView === 'feed'
