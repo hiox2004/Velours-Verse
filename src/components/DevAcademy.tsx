@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { StorageService, SUPER_ADMIN_EMAIL, DEFAULT_AUTHOR_NOTE } from '../services/storage';
@@ -82,6 +83,17 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [copiedPenpalId, setCopiedPenpalId] = useState<string | null>(null);
   const [usersRefreshKey, setUsersRefreshKey] = useState(0);
+
+  // Lock body scroll when User Account Dossier modal is open
+  useEffect(() => {
+    if (selectedUserForModal) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [selectedUserForModal]);
 
   // Author's Note Custom Message States
   const [authorNote, setAuthorNote] = useState<AuthorNote | null>(() => StorageService.getAuthorNote());
@@ -766,85 +778,101 @@ CREATE POLICY "Authors full access to own writings"
                 </div>
               ) : (
                 filteredUsers.map(user => {
-                  const userPieces = pieces.filter(p => p.authorId === user.id || p.authorEmail === user.email);
-                  const isUserDev = devRoster.some(e => e.toLowerCase() === user.email.toLowerCase()) || user.role === 'developer';
+                  const email = user.email || '';
+                  const penpalIds = user.penpalIds || [];
+                  const userPieces = pieces.filter(p => p.authorId === user.id || (p.authorEmail && p.authorEmail.toLowerCase() === email.toLowerCase()));
+                  const isUserDev = devRoster.some(e => e.toLowerCase() === email.toLowerCase()) || user.role === 'developer';
                   const totalWords = userPieces.reduce((acc, p) => acc + (p.wordCount || 0), 0);
+                  const isSuper = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
 
                   return (
                     <div
                       key={user.id}
                       onClick={() => setSelectedUserForModal(user)}
                       style={glassStyle}
-                      className={`group/card relative p-4 rounded-2xl border-2 ${cardStyle.border} ${cardStyle.shadow} backdrop-blur-md cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col justify-between`}
+                      className={`group/card relative p-5 rounded-3xl border-3 ${cardStyle.border} ${cardStyle.shadow} backdrop-blur-xl cursor-pointer hover:-translate-y-1 hover:shadow-xl transition-all duration-200 overflow-hidden flex flex-col justify-between`}
                     >
                       {/* Top micro accent strip */}
-                      <div className={`absolute top-0 left-0 right-0 h-1 ${isUserDev ? 'bg-indigo-600' : cardStyle.accentBar}`} />
+                      <div className={`absolute top-0 left-0 right-0 h-1.5 ${isSuper ? 'bg-amber-400' : isUserDev ? 'bg-indigo-600' : cardStyle.accentBar}`} />
+
+                      {/* Frosted Sheen Overlay */}
+                      <div
+                        className="absolute inset-0 bg-gradient-to-b from-white/30 dark:from-white/10 to-transparent pointer-events-none rounded-3xl"
+                        style={{ backgroundClip: 'padding-box', WebkitBackgroundClip: 'padding-box' }}
+                      />
 
                       {/* Header row: Avatar, Name, Role badge */}
-                      <div className="space-y-2.5">
-                        <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-3 relative z-10">
+                        <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="relative shrink-0">
                               <img
-                                src={user.avatar}
+                                src={user.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${user.displayName}`}
                                 alt={user.displayName}
-                                className="w-11 h-11 rounded-2xl object-cover ring-2 ring-black/20 dark:ring-white/20 shadow-xs group-hover/card:scale-105 transition-transform"
+                                className="w-12 h-12 rounded-2xl object-cover ring-2 ring-black/20 dark:ring-white/20 shadow-xs group-hover/card:scale-105 transition-transform"
+                                referrerPolicy="no-referrer"
                               />
                               {isUserDev && (
-                                <span className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-indigo-600 text-white shadow-2xs" title="Developer">
-                                  <ShieldCheck className="w-3 h-3 stroke-[2.5]" />
+                                <span className="absolute -bottom-1 -right-1 p-1 rounded-full bg-indigo-600 text-white shadow-2xs" title="Developer God Mode Account">
+                                  <ShieldCheck className="w-3.5 h-3.5 stroke-[2.5]" />
                                 </span>
                               )}
                             </div>
 
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <h4 className="font-display-chic text-sm font-black text-black dark:text-white truncate">
+                                <h4 className="font-display-chic text-base font-black text-black dark:text-white truncate">
                                   {user.displayName}
                                 </h4>
                                 {user.id === currentUser.id && (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 font-black border border-emerald-300">
-                                    Current Session
+                                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-300 font-black border border-emerald-400">
+                                    Active Session
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[11px] font-mono text-pink-700 dark:text-pink-400 font-black block">
+                              <span className="text-xs font-mono text-pink-700 dark:text-pink-400 font-black block">
                                 {user.penpalId}
                               </span>
                             </div>
                           </div>
 
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider ${
-                            isUserDev
-                              ? 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200 border border-indigo-400'
+                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0 uppercase tracking-wider ${
+                            isSuper
+                              ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border-2 border-amber-400'
+                              : isUserDev
+                              ? 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200 border-2 border-indigo-400'
                               : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700'
                           }`}>
-                            {isUserDev ? 'Developer' : 'Writer'}
+                            {isSuper ? 'Lead Architect' : isUserDev ? 'Developer' : 'Writer'}
                           </span>
                         </div>
 
                         {/* Private Gmail indicator (God Mode perk) */}
-                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-50/70 dark:bg-indigo-950/40 px-2 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/60 truncate">
-                          <Lock className="w-3 h-3 shrink-0 text-indigo-600 stroke-[2.5]" />
-                          <span className="truncate">Gmail: {user.email}</span>
+                        <div className="flex items-center gap-2 text-xs font-mono text-indigo-800 dark:text-indigo-300 font-bold bg-indigo-50/80 dark:bg-indigo-950/50 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800/70 truncate">
+                          <Lock className="w-3.5 h-3.5 shrink-0 text-indigo-600 stroke-[2.5]" />
+                          <span className="truncate">{email || 'No email attached'}</span>
                         </div>
 
                         {/* Bio snippet */}
-                        {user.bio && (
-                          <p className="text-xs text-black/80 dark:text-zinc-300 font-medium line-clamp-2 italic">
+                        {user.bio ? (
+                          <p className="text-xs text-black/85 dark:text-zinc-200 font-serif-literary line-clamp-2 italic leading-relaxed bg-black/5 dark:bg-white/5 p-2.5 rounded-xl border border-black/10 dark:border-white/10">
                             &ldquo;{user.bio}&rdquo;
                           </p>
+                        ) : (
+                          <div className="text-xs text-black/50 dark:text-zinc-400 italic">
+                            Creative writer exploring the Velours &amp; Verse sanctuary.
+                          </div>
                         )}
                       </div>
 
                       {/* Footer metrics & CTA */}
-                      <div className="pt-3 mt-2 border-t border-black/10 dark:border-white/10 flex items-center justify-between text-xs font-bold gap-2">
-                        <div className="flex items-center gap-2 text-[11px] text-black/70 dark:text-zinc-300 font-mono">
+                      <div className="pt-3 mt-3 border-t-2 border-black/10 dark:border-white/10 flex items-center justify-between text-xs font-bold gap-2 relative z-10">
+                        <div className="flex items-center gap-2 text-[11px] text-black/75 dark:text-zinc-300 font-mono">
                           <span className="font-black text-black dark:text-white">{userPieces.length} pieces</span>
                           <span>·</span>
                           <span>{totalWords.toLocaleString()} words</span>
                           <span>·</span>
-                          <span className="text-pink-600 font-bold">{user.penpalIds.length} penpals</span>
+                          <span className="text-pink-600 dark:text-pink-400 font-black">{penpalIds.length} penpals</span>
                         </div>
 
                         <button
@@ -853,10 +881,10 @@ CREATE POLICY "Authors full access to own writings"
                             e.stopPropagation();
                             setSelectedUserForModal(user);
                           }}
-                          className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-black text-white dark:bg-white dark:text-black hover:opacity-90 active:scale-95 transition-all flex items-center gap-1 shadow-2xs shrink-0"
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-black text-white dark:bg-white dark:text-black hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm border-2 border-black dark:border-white shrink-0"
                         >
                           <span>Open Details</span>
-                          <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+                          <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
                         </button>
                       </div>
                     </div>
@@ -1670,10 +1698,13 @@ CREATE POLICY "Authors full access to own writings"
       />
 
       {/* USER ACCOUNT DETAILS DOSSIER MODAL (Comprehensive Database Record Display) */}
-      {selectedUserForModal && (() => {
+      {selectedUserForModal && createPortal((() => {
         const user = selectedUserForModal;
-        const userPieces = pieces.filter(p => p.authorId === user.id || p.authorEmail === user.email);
-        const isUserDev = devRoster.some(e => e.toLowerCase() === user.email.toLowerCase()) || user.role === 'developer';
+        const email = user.email || '';
+        const penpalIds = user.penpalIds || [];
+        const userPieces = pieces.filter(p => p.authorId === user.id || (p.authorEmail && p.authorEmail.toLowerCase() === email.toLowerCase()));
+        const isUserDev = devRoster.some(e => e.toLowerCase() === email.toLowerCase()) || user.role === 'developer';
+        const isSuper = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
         const totalWordsAuthored = userPieces.reduce((acc, p) => acc + (p.wordCount || 0), 0);
         const totalStarsReceived = userPieces.reduce((acc, p) => acc + (p.stars || 0), 0);
         const draftCount = userPieces.filter(p => p.status === 'draft').length;
@@ -1682,7 +1713,7 @@ CREATE POLICY "Authors full access to own writings"
 
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print"
             onClick={() => setSelectedUserForModal(null)}
           >
             <div
@@ -1894,20 +1925,20 @@ CREATE POLICY "Authors full access to own writings"
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-black uppercase text-black/70 dark:text-zinc-300 tracking-wider flex items-center gap-1.5">
                       <Mail className="w-3.5 h-3.5 text-pink-500" />
-                      <span>Connected Penpal Circle ({user.penpalIds.length})</span>
+                      <span>Connected Penpal Circle ({penpalIds.length})</span>
                     </span>
                     <span className="text-[10px] font-bold text-black/50 dark:text-zinc-400">
                       Correspondence Network
                     </span>
                   </div>
 
-                  {user.penpalIds.length === 0 ? (
+                  {penpalIds.length === 0 ? (
                     <p className="text-xs text-black/60 dark:text-zinc-400 font-bold italic py-1">
                       No active penpals connected in directory yet.
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {user.penpalIds.map(pid => {
+                      {penpalIds.map(pid => {
                         const matchedUser = allUsers.find(u => u.penpalId === pid);
                         return (
                           <div
@@ -2083,7 +2114,7 @@ CREATE POLICY "Authors full access to own writings"
             </div>
           </div>
         );
-      })()}
+      })(), document.body)}
     </div>
   );
 };
