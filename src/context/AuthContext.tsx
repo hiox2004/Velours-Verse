@@ -110,10 +110,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Real Google OAuth through Supabase
   const signInWithGoogle = async () => {
     try {
+      const redirectUrl = window.location.hostname === 'localhost' 
+        ? window.location.origin 
+        : 'https://velours-verse.vercel.app';
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: redirectUrl
         }
       });
       if (error) console.error('OAuth Error:', error.message);
