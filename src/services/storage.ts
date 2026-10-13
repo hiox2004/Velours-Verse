@@ -27,6 +27,21 @@ export const DEFAULT_AUTHOR_NOTE: AuthorNote = {
 
 const INITIAL_DEV_ROSTER = [SUPER_ADMIN_EMAIL, 'developer@veloursverse.app'];
 
+export const ANONYMOUS_GUEST_PROFILE: UserProfile = {
+  id: 'guest',
+  email: '',
+  displayName: 'Guest Reader',
+  penpalId: 'PEN-GUEST',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  bio: 'Quietly wandering through the Velours & Verse sanctuary.',
+  favoriteDrink: 'Oat Milk Chai',
+  favoriteQuote: 'Words are sacred.',
+  writingGoalWords: 300,
+  penpalIds: [],
+  role: 'writer',
+  createdAt: '2026-10-14T00:00:00Z'
+};
+
 // Sample pre-seeded authors
 export const SEED_USERS: UserProfile[] = [
   {
@@ -289,13 +304,11 @@ export class StorageService {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PROFILE);
       if (!data) {
-        // Default to lead developer profile
-        localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(SEED_USERS[0]));
-        return SEED_USERS[0];
+        return ANONYMOUS_GUEST_PROFILE;
       }
       return JSON.parse(data);
     } catch {
-      return SEED_USERS[0];
+      return ANONYMOUS_GUEST_PROFILE;
     }
   }
 

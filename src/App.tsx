@@ -39,7 +39,7 @@ import {
 
 function MainApp() {
   const { theme, themeId, activeTokens } = useTheme();
-  const { currentUser, isDeveloper } = useAuth();
+  const { currentUser, isAuthenticated, isDeveloper } = useAuth();
 
   // Navigation and Modal states (Clean URL routing)
   const getInitialRoute = (): AppView => {
@@ -55,6 +55,14 @@ function MainApp() {
   const [currentView, setCurrentView] = useState<AppView>(getInitialRoute);
 
   const navigateTo = (view: AppView) => {
+    // Access control: Guest users trying to navigate to anything other than landing/auth are asked to sign in
+    if (!isAuthenticated && view !== 'landing' && view !== 'auth') {
+      setCurrentView('auth');
+      window.history.pushState(null, '', '/auth');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     // Access control: Dev Academy strictly restricted to hiox2004@gmail.com
     if (view === 'dev_academy' && !isDeveloper) {
       alert('Access restricted: Developer Academy is only accessible to administrator (hiox2004).');
@@ -81,20 +89,9 @@ function MainApp() {
   const [pieceToPrint, setPieceToPrint] = useState<WritingPiece | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  // Author Note Modal state
+  // Author Note Modal state (Users can open it via the banner or letter button)
   const [activeAuthorNote, setActiveAuthorNote] = useState<AuthorNote | null>(() => StorageService.getAuthorNote());
-  const [isAuthorNoteModalOpen, setIsAuthorNoteModalOpen] = useState<boolean>(() => {
-    const note = StorageService.getAuthorNote();
-    if (!note || !note.active) return false;
-    const isDismissed = StorageService.isNoteDismissed(note.id);
-    if (isDismissed) return false;
-    const profile = StorageService.getActiveProfile();
-    const isTargeted = note.targetAudience === 'all' ||
-      note.targetAudience === profile.penpalId ||
-      note.targetAudience === profile.email ||
-      note.targetAudience === profile.id;
-    return isTargeted;
-  });
+  const [isAuthorNoteModalOpen, setIsAuthorNoteModalOpen] = useState<boolean>(false);
 
   // Refresh active author note on view switch
   useEffect(() => {
@@ -133,7 +130,7 @@ function MainApp() {
     window.addEventListener('offline', handleOffline);
 
     // Initial load from Supabase
-    SupabaseService.getPieces(currentUser.id).then(fetched => {
+    SupabaseService.getPieces(currentUser?.id).then(fetched => {
       if (fetched && fetched.length > 0) {
         setPieces(fetched);
       }
@@ -143,7 +140,7 @@ function MainApp() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [currentUser.id]);
+  }, [currentUser?.id]);
 
   // Filtered pieces based on search, status, and type
   const filteredPieces = useMemo(() => {
@@ -153,7 +150,7 @@ function MainApp() {
     if (statusFilter === 'published') {
       result = result.filter(p => p.status === 'published');
     } else if (statusFilter === 'drafts') {
-      result = result.filter(p => p.status === 'draft' && (isDeveloper || p.authorId === currentUser.id || p.authorEmail === currentUser.email));
+      result = result.filter(p => p.status === 'draft' && (isDeveloper || (currentUser && (p.authorId === currentUser.id || p.authorEmail === currentUser.email))));
     } else if (statusFilter === 'penpals') {
       result = result.filter(p => p.status === 'penpals');
     } else if (statusFilter === 'starred') {
@@ -162,7 +159,7 @@ function MainApp() {
       result = result.filter(p => {
         if (p.status === 'published' || p.status === 'penpals') return true;
         if (p.status === 'draft') {
-          return isDeveloper || p.authorId === currentUser.id || p.authorEmail === currentUser.email;
+          return isDeveloper || (currentUser && (p.authorId === currentUser.id || p.authorEmail === currentUser.email));
         }
         return false;
       });
@@ -194,7 +191,7 @@ function MainApp() {
     const updated = StorageService.savePiece(piece);
     setPieces(updated);
 
-    if (currentUser.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
+    if (currentUser?.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
       SupabaseService.savePiece(piece, currentUser.id).then(() => {
         setSyncState('synced');
       });
@@ -210,7 +207,7 @@ function MainApp() {
   const handleDeletePiece = (id: string) => {
     const updated = StorageService.deletePiece(id);
     setPieces(updated);
-    if (currentUser.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
+    if (currentUser?.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
       SupabaseService.deletePiece(id);
     }
     if (selectedPieceForReader && selectedPieceForReader.id === id) {
@@ -230,9 +227,9 @@ function MainApp() {
   const handleAddComment = (pieceId: string, text: string) => {
     const comment = {
       id: `c_${Date.now()}`,
-      authorDisplayName: currentUser.displayName,
-      authorPenpalId: currentUser.penpalId,
-      authorAvatar: currentUser.avatar,
+      authorDisplayName: currentUser?.displayName || 'Anonymous Reader',
+      authorPenpalId: currentUser?.penpalId || 'PEN-????',
+      authorAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       text,
       createdAt: new Date().toISOString()
     };
@@ -270,10 +267,21 @@ function MainApp() {
         currentView={currentView}
         onSelectView={v => navigateTo(v)}
         onOpenNewPiece={() => {
+          if (!isAuthenticated) {
+            navigateTo('auth');
+            return;
+          }
           setPieceToEdit(null);
           setIsEditorOpen(true);
         }}
-        onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenProfile={() => {
+          if (!isAuthenticated) {
+            navigateTo('auth');
+            return;
+          }
+          setIsProfileModalOpen(true);
+        }}
+        onOpenAuth={() => navigateTo('auth')}
         isOnline={isOnline}
         syncState={syncState}
       />
@@ -507,11 +515,11 @@ function MainApp() {
                 content: `Prompt: ${promptText}\n\n`,
                 type: 'prose',
                 status: 'draft',
-                authorId: currentUser.id,
-                authorDisplayName: currentUser.displayName,
-                authorPenpalId: currentUser.penpalId,
-                authorEmail: currentUser.email,
-                authorAvatar: currentUser.avatar,
+                authorId: currentUser?.id || 'guest',
+                authorDisplayName: currentUser?.displayName || 'Quiet Writer',
+                authorPenpalId: currentUser?.penpalId || 'PEN-????',
+                authorEmail: currentUser?.email || '',
+                authorAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 stars: 0,

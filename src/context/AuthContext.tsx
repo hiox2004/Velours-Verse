@@ -6,6 +6,7 @@ import { SupabaseService } from '../services/supabaseService';
 
 interface AuthContextType {
   currentUser: UserProfile;
+  isAuthenticated: boolean;
   isDeveloper: boolean;
   isSuperAdmin: boolean;
   devRoster: string[];
@@ -35,24 +36,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => StorageService.getActiveProfile());
   const [devRoster, setDevRoster] = useState<string[]>(() => StorageService.getDevRoster());
 
-  const normalizedEmail = (currentUser.email || '').toLowerCase().trim();
+  const isAuthenticated = Boolean(currentUser && currentUser.id && currentUser.id !== 'guest');
+  const normalizedEmail = (currentUser?.email || '').toLowerCase().trim();
   // Developer Academy is strictly restricted to hiox2004@gmail.com
-  const isDeveloper = normalizedEmail.startsWith('hiox2004@gmail.com') || normalizedEmail === 'hiox2004';
+  const isDeveloper = Boolean(
+    isAuthenticated && (normalizedEmail.startsWith('hiox2004@gmail.com') || normalizedEmail === 'hiox2004')
+  );
   const isSuperAdmin = isDeveloper;
 
   // Listen for Supabase Auth state changes
   useEffect(() => {
-    // 1. Check active session on mount
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         await syncUserSession(session.user);
       }
     });
 
-    // 2. Auth listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         await syncUserSession(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        const guest = StorageService.getActiveProfile();
+        setCurrentUser(guest);
+        localStorage.removeItem('velours_user_profile_v1');
       }
     });
 
@@ -70,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(existing);
       StorageService.saveActiveProfile(existing);
     } else {
-      // Create new profile record in Supabase
       const newProfile: UserProfile = {
         id: user.id,
         email,
@@ -93,7 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    StorageService.saveActiveProfile(currentUser);
+    if (currentUser) {
+      StorageService.saveActiveProfile(currentUser);
+    }
   }, [currentUser]);
 
   useEffect(() => {
@@ -120,7 +127,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     StorageService.saveActiveProfile(user);
   };
 
-  // Mock / Dev fallback login
   const loginWithGoogle = (email: string, displayName?: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const allUsers = StorageService.getAllUsers();
@@ -155,24 +161,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     await supabase.auth.signOut().catch(() => {});
-    const guestUser: UserProfile = {
-      id: 'guest',
-      email: 'guest@veloursverse.app',
-      displayName: 'Guest Writer',
-      penpalId: generatePenpalId(),
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      bio: 'Browsing through the journal archives.',
-      favoriteDrink: 'Earl Grey Tea',
-      favoriteQuote: 'Words are sacred.',
-      writingGoalWords: 300,
-      penpalIds: [],
-      role: 'writer',
-      createdAt: new Date().toISOString()
-    };
-    setCurrentUser(guestUser);
+    localStorage.removeItem('velours_user_profile_v1');
+    const guest = StorageService.getActiveProfile();
+    setCurrentUser(guest);
   };
 
   const updateProfile = async (updated: Partial<UserProfile>) => {
+    if (!currentUser) return;
     const next = { ...currentUser, ...updated };
     setCurrentUser(next);
     StorageService.saveActiveProfile(next);
@@ -182,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addPenpal = async (penpalIdInput: string): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser) return { success: false, message: 'Please sign in to add penpals.' };
     const cleanId = penpalIdInput.trim().toUpperCase();
     if (!cleanId) return { success: false, message: 'Please enter a valid Penpal ID.' };
     if (cleanId === currentUser.penpalId) return { success: false, message: 'You cannot add your own Penpal ID!' };
@@ -212,6 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const removePenpal = async (penpalIdToRemove: string) => {
+    if (!currentUser) return;
     const nextPenpals = currentUser.penpalIds.filter(id => id !== penpalIdToRemove);
     setCurrentUser(prev => ({ ...prev, penpalIds: nextPenpals }));
     if (currentUser.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
@@ -239,6 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         currentUser,
+        isAuthenticated,
         isDeveloper,
         isSuperAdmin,
         devRoster,

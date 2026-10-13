@@ -105,9 +105,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const glassStyle = getThemeGlassCardStyle(themeId, mode);
 
   return (
-    <div className="space-y-16 py-6 md:py-12 animate-in fade-in duration-300">
+    <div className="space-y-16 sm:space-y-24 py-8 md:py-16 animate-in fade-in duration-300">
       {/* Hero Section */}
-      <section className="text-center max-w-4xl mx-auto px-4 space-y-6">
+      <section className="text-center max-w-4xl mx-auto px-4 sm:px-6 space-y-6">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-2 border-black/20 dark:border-white/20 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md shadow-xs">
           <ThemeMotifIcon themeId={themeId} className="w-4 h-4 text-black dark:text-white" />
           <span className="text-xs font-black uppercase tracking-wider text-black dark:text-zinc-200">
@@ -115,7 +115,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </span>
         </div>
 
-        <h1 className="font-display-chic text-4xl sm:text-6xl md:text-7xl font-black text-black dark:text-white tracking-tight leading-[1.08]">
+        <h1 className="font-display-chic text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-black dark:text-white tracking-tight leading-[1.06]">
           Words that refuse <br className="hidden sm:inline" />
           <span className="italic underline decoration-pink-400 dark:decoration-pink-500 underline-offset-4">to be rushed.</span>
         </h1>
@@ -144,18 +144,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* Curated Literature Wall */}
-      <section className="max-w-6xl mx-auto px-4 space-y-6">
+      <section className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 space-y-8">
         <div className="flex items-center justify-between border-b-2 border-black/10 dark:border-white/10 pb-4">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <Feather className="w-5 h-5 text-pink-600 dark:text-pink-400" />
-            <h2 className="font-display-chic text-xl md:text-2xl font-black text-black dark:text-white">
+            <h2 className="font-display-chic text-xl md:text-3xl font-black text-black dark:text-white">
               Curated Verses & Quiet Reflections
             </h2>
           </div>
           <span className="text-xs font-mono font-bold text-zinc-500">Anthology Preview</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {CURATED_SNIPPETS.map(snippet => (
             <div
               key={snippet.id}

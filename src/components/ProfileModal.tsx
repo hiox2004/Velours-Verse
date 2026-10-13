@@ -13,6 +13,7 @@ import {
   Check,
   Copy,
   LogIn,
+  LogOut,
   Key
 } from 'lucide-react';
 
@@ -30,17 +31,17 @@ const AVATAR_OPTIONS = [
 ];
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { currentUser, isDeveloper, updateProfile, loginWithGoogle, signInWithGoogle, loginAs } = useAuth();
+  const { currentUser, isDeveloper, updateProfile, loginWithGoogle, signInWithGoogle, loginAs, logout } = useAuth();
   const { mode, theme, themeId } = useTheme();
 
   const cardStyle = mode === 'light' ? theme.light.card : theme.dark.card;
   const glassStyle = getThemeGlassCardStyle(themeId, mode);
 
-  const [displayName, setDisplayName] = useState(currentUser.displayName);
-  const [avatar, setAvatar] = useState(currentUser.avatar);
-  const [bio, setBio] = useState(currentUser.bio);
-  const [favoriteDrink, setFavoriteDrink] = useState(currentUser.favoriteDrink);
-  const [favoriteQuote, setFavoriteQuote] = useState(currentUser.favoriteQuote);
+  const [displayName, setDisplayName] = useState(currentUser?.displayName || 'Quiet Writer');
+  const [avatar, setAvatar] = useState(currentUser?.avatar || AVATAR_OPTIONS[0]);
+  const [bio, setBio] = useState(currentUser?.bio || '');
+  const [favoriteDrink, setFavoriteDrink] = useState(currentUser?.favoriteDrink || '');
+  const [favoriteQuote, setFavoriteQuote] = useState(currentUser?.favoriteQuote || '');
   const [copiedId, setCopiedId] = useState(false);
 
   // Custom Google Login input
@@ -52,6 +53,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) return;
     updateProfile({
       displayName: displayName.trim() || currentUser.displayName,
       avatar,
@@ -63,6 +65,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
   };
 
   const handleCopyId = () => {
+    if (!currentUser?.penpalId) return;
     navigator.clipboard.writeText(currentUser.penpalId);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
@@ -112,92 +115,67 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Identity Pill Card */}
-          <div
-            style={glassStyle}
-            className={`p-4 rounded-2xl border-2 ${cardStyle.border} flex items-center justify-between shadow-2xs backdrop-blur-md`}
-          >
-            <div className="flex items-center gap-3">
-              <img
-                src={avatar}
-                alt={currentUser.displayName}
-                className="w-12 h-12 rounded-full object-cover ring-2 ring-black dark:ring-white shadow-sm"
-                referrerPolicy="no-referrer"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-black text-sm text-black dark:text-white">
-                    {currentUser.displayName}
-                  </h3>
-                  {isDeveloper && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-black flex items-center gap-1 shadow-2xs">
-                      <ShieldCheck className="w-3 h-3 stroke-[2.5]" />
-                      <span>Developer Mode</span>
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-black dark:text-zinc-200 font-mono mt-0.5 font-black">
-                  ID: <span className="text-pink-700 dark:text-pink-400">{currentUser.penpalId}</span>
+          {currentUser && (
+            <div
+              style={glassStyle}
+              className={`p-4 rounded-2xl border-2 ${cardStyle.border} flex items-center justify-between shadow-2xs backdrop-blur-md`}
+            >
+              <div className="flex items-center gap-3">
+                <img
+                  src={avatar}
+                  alt={currentUser.displayName}
+                  className="w-12 h-12 rounded-full object-cover ring-2 ring-black dark:ring-white shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-sm text-black dark:text-white">
+                      {currentUser.displayName}
+                    </h3>
+                    {isDeveloper && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-black flex items-center gap-1 shadow-2xs">
+                        <ShieldCheck className="w-3 h-3 stroke-[2.5]" />
+                        <span>Developer Mode</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-black dark:text-zinc-200 font-mono mt-0.5 font-black">
+                    ID: <span className="text-pink-700 dark:text-pink-400">{currentUser.penpalId}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={handleCopyId}
-              className="px-3 py-1.5 rounded-xl text-xs font-black bg-black text-white dark:bg-white dark:text-black border-2 border-black dark:border-white flex items-center gap-1.5 shadow-2xs hover:opacity-90 active:scale-95 transition-all"
-            >
-              {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedId ? 'Copied' : 'Copy'}</span>
-            </button>
-          </div>
-
-          {/* Google Sign-In & Switcher */}
-          <div className="space-y-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border-2 border-zinc-200 dark:border-zinc-700">
-            <div className="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <LogIn className="w-3.5 h-3.5 text-pink-600" />
-                <span>Google Account Sign-In & Dev Mode</span>
-              </span>
-              <span className="text-[11px] text-zinc-500 font-medium">
-                Active: <code className="text-zinc-900 dark:text-zinc-100 font-bold">{currentUser.email}</code>
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {/* Lead Developer Quick Button */}
               <button
                 type="button"
-                onClick={() => loginWithGoogle(SUPER_ADMIN_EMAIL, 'Aura Dev (Lead)')}
-                className="p-3 rounded-xl border-2 border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 text-left hover:bg-indigo-100 transition-colors"
+                onClick={handleCopyId}
+                className="px-3 py-1.5 rounded-xl border-2 border-black/20 dark:border-zinc-700 text-xs font-black bg-white dark:bg-zinc-800 hover:bg-zinc-100 flex items-center gap-1.5 text-black dark:text-zinc-100 shadow-2xs transition-colors"
               >
-                <div className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">
-                  <Key className="w-3 h-3 text-indigo-600" />
-                  <span>Lead Developer ({SUPER_ADMIN_EMAIL})</span>
-                </div>
-                <div className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-0.5 font-medium">
-                  Unlocks Developer God Mode & Academy
-                </div>
-              </button>
-
-              {/* Clara Penpal Button */}
-              <button
-                type="button"
-                onClick={() => loginAs(SEED_USERS[1])}
-                className="p-3 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-left hover:bg-zinc-100 transition-colors"
-              >
-                <div className="font-bold text-zinc-950 dark:text-zinc-100">
-                  Clara D. (Poet)
-                </div>
-                <div className="text-[10px] text-zinc-500 mt-0.5 font-medium">
-                  PEN-7K3N1 · Regular Writer
-                </div>
+                {copiedId ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy ID</span>
+                  </>
+                )}
               </button>
             </div>
+          )}
 
-            <div className="pt-2 flex flex-col gap-2">
+          {/* Real Google Account / Sign-in */}
+          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border-2 border-black/15 dark:border-zinc-800 space-y-3">
+            <div className="text-xs font-black text-black dark:text-zinc-200 uppercase tracking-wider">
+              Google Account Authentication
+            </div>
+
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => signInWithGoogle()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100 font-bold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors shadow-2xs"
+                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border-2 border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100 font-bold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors shadow-2xs"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -256,105 +234,103 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
           </div>
 
           {/* Profile Form */}
-          <form onSubmit={handleSave} className="space-y-4">
-            {/* Display Name */}
-            <div>
-              <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
-                Display Name (Public to Penpals)
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs font-black rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black"
-              />
-            </div>
+          {currentUser && (
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
+                  Display Name (Public to Penpals)
+                </label>
+                <div className="relative">
+                  <User className="w-3.5 h-3.5 absolute left-3 top-3 text-black dark:text-zinc-400 stroke-[2.5]" />
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    placeholder="Your pen name"
+                    className="w-full pl-9 pr-3.5 py-2 text-xs font-black rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black"
+                  />
+                </div>
+              </div>
 
-            {/* Avatar Selector */}
-            <div>
-              <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
-                Choose Aesthetic Avatar
-              </label>
-              <div className="flex items-center gap-2">
-                {AVATAR_OPTIONS.map((img, i) => (
+              {/* Bio */}
+              <div>
+                <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
+                  Short Bio (Writing Aesthetic)
+                </label>
+                <textarea
+                  value={bio}
+                  onChange={e => setBio(e.target.value)}
+                  rows={2}
+                  placeholder="What inspires your words?"
+                  className="w-full p-3 text-xs font-black rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black font-serif-literary"
+                />
+              </div>
+
+              {/* Favorite Drink */}
+              <div>
+                <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
+                  Companion Drink While Writing
+                </label>
+                <div className="relative">
+                  <Coffee className="w-3.5 h-3.5 absolute left-3 top-3 text-black dark:text-zinc-400 stroke-[2.5]" />
+                  <input
+                    type="text"
+                    value={favoriteDrink}
+                    onChange={e => setFavoriteDrink(e.target.value)}
+                    placeholder="e.g. Lavender London Fog"
+                    className="w-full pl-9 pr-3.5 py-2 text-xs font-black rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black"
+                  />
+                </div>
+              </div>
+
+              {/* Favorite Quote */}
+              <div>
+                <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
+                  Guiding Literary Quote
+                </label>
+                <div className="relative">
+                  <Quote className="w-3.5 h-3.5 absolute left-3 top-3 text-black dark:text-zinc-400 stroke-[2.5]" />
+                  <input
+                    type="text"
+                    value={favoriteQuote}
+                    onChange={e => setFavoriteQuote(e.target.value)}
+                    placeholder="e.g. Words are sacred."
+                    className="w-full pl-9 pr-3.5 py-2 text-xs font-black rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black font-serif-literary"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                    onClose();
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1.5 transition-colors border border-rose-300 dark:border-rose-800"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+
+                <div className="flex items-center gap-2">
                   <button
-                    key={i}
                     type="button"
-                    onClick={() => setAvatar(img)}
-                    className={`w-10 h-10 rounded-full overflow-hidden transition-all ${
-                      avatar === img ? 'ring-3 ring-pink-700 scale-110' : 'opacity-60 hover:opacity-100 ring-2 ring-black/40'
-                    }`}
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-xl text-xs font-black text-black dark:text-zinc-300 hover:opacity-70"
                   >
-                    <img src={img} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    Cancel
                   </button>
-                ))}
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl text-xs font-black text-white bg-black dark:bg-white dark:text-black hover:opacity-90 active:scale-95 transition-all shadow-sm border-2 border-black dark:border-white"
+                  >
+                    Save Changes
+                  </button>
+                </div>
               </div>
-            </div>
-
-            {/* Bio */}
-            <div>
-              <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
-                Get to Know Me — Bio
-              </label>
-              <textarea
-                value={bio}
-                onChange={e => setBio(e.target.value)}
-                rows={2}
-                placeholder="What inspires your writing?"
-                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black resize-none font-serif-literary"
-              />
-            </div>
-
-            {/* Favorite Beverage */}
-            <div>
-              <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
-                Writing Beverage of Choice
-              </label>
-              <div className="relative">
-                <Coffee className="w-3.5 h-3.5 absolute left-3 top-3 text-black dark:text-zinc-400 stroke-[2.5]" />
-                <input
-                  type="text"
-                  value={favoriteDrink}
-                  onChange={e => setFavoriteDrink(e.target.value)}
-                  placeholder="e.g. Iced Matcha Latte with Oat Milk"
-                  className="w-full pl-9 pr-3.5 py-2 text-xs font-black rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black"
-                />
-              </div>
-            </div>
-
-            {/* Favorite Quote */}
-            <div>
-              <label className="block text-xs font-black text-black dark:text-zinc-200 mb-1">
-                Guiding Literary Quote
-              </label>
-              <div className="relative">
-                <Quote className="w-3.5 h-3.5 absolute left-3 top-3 text-black dark:text-zinc-400 stroke-[2.5]" />
-                <input
-                  type="text"
-                  value={favoriteQuote}
-                  onChange={e => setFavoriteQuote(e.target.value)}
-                  placeholder="e.g. Words are sacred."
-                  className="w-full pl-9 pr-3.5 py-2 text-xs font-black rounded-xl bg-white dark:bg-zinc-800 text-black dark:text-zinc-50 border-2 border-black/30 dark:border-zinc-700 outline-none focus:border-black font-serif-literary"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-xl text-xs font-black text-black dark:text-zinc-300 hover:opacity-70"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl text-xs font-black text-white bg-black dark:bg-white dark:text-black hover:opacity-90 active:scale-95 transition-all shadow-sm border-2 border-black dark:border-white"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
+            </form>
+          )}
         </div>
       </div>
     </div>
