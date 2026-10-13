@@ -47,10 +47,10 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
     setTimeout(() => setCopiedMyId(false), 2000);
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMessage(null);
-    const res = addPenpal(inputPenpalId);
+    const res = await addPenpal(inputPenpalId);
     setStatusMessage({
       text: res.message,
       isError: !res.success

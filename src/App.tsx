@@ -18,6 +18,7 @@ import { DevAcademy } from './components/DevAcademy';
 import { ThemeMotifIcon, ThemeHeroIllustration } from './components/ThemeIllustrations';
 import { AuthorNoteModal } from './components/AuthorNoteModal';
 import { StorageService } from './services/storage';
+import { SupabaseService } from './services/supabaseService';
 import {
   WritingPiece,
   AppView,
@@ -98,11 +99,18 @@ function MainApp() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Initial load from Supabase
+    SupabaseService.getPieces(currentUser.id).then(fetched => {
+      if (fetched && fetched.length > 0) {
+        setPieces(fetched);
+      }
+    });
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [currentUser.id]);
 
   // Filtered pieces based on search, status, and type
   const filteredPieces = useMemo(() => {
@@ -152,7 +160,14 @@ function MainApp() {
     setSyncState('syncing');
     const updated = StorageService.savePiece(piece);
     setPieces(updated);
-    setTimeout(() => setSyncState('synced'), 400);
+
+    if (currentUser.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
+      SupabaseService.savePiece(piece, currentUser.id).then(() => {
+        setSyncState('synced');
+      });
+    } else {
+      setTimeout(() => setSyncState('synced'), 400);
+    }
 
     if (selectedPieceForReader && selectedPieceForReader.id === piece.id) {
       setSelectedPieceForReader(piece);
@@ -162,6 +177,9 @@ function MainApp() {
   const handleDeletePiece = (id: string) => {
     const updated = StorageService.deletePiece(id);
     setPieces(updated);
+    if (currentUser.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
+      SupabaseService.deletePiece(id);
+    }
     if (selectedPieceForReader && selectedPieceForReader.id === id) {
       setSelectedPieceForReader(null);
     }
