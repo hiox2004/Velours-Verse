@@ -56,6 +56,10 @@ export const WritingEditor: React.FC<WritingEditorProps> = ({
   const [cardTint, setCardTint] = useState('default');
   const [moodTags, setMoodTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
+
+  const DRAFT_KEY = 'velours_editor_autosave_draft';
 
   useEffect(() => {
     if (initialPiece) {
@@ -65,17 +69,85 @@ export const WritingEditor: React.FC<WritingEditorProps> = ({
       setStatus(initialPiece.status);
       setCardTint(initialPiece.cardTint || 'default');
       setMoodTags(initialPiece.moodTags || []);
+      setHasRestoredDraft(false);
     } else {
+      // Check if there is an unsaved draft from a previous session
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.title || parsed.content) {
+            setTitle(parsed.title || '');
+            setContent(parsed.content || '');
+            setType(parsed.type || 'poem');
+            setStatus(parsed.status || 'published');
+            setCardTint(parsed.cardTint || 'default');
+            setMoodTags(parsed.moodTags || ['Ethereal']);
+            setHasRestoredDraft(true);
+            setLastAutoSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+            return;
+          }
+        } catch {
+          // ignore error
+        }
+      }
       setTitle('');
       setContent('');
       setType('poem');
       setStatus('published');
       setCardTint('default');
       setMoodTags(['Ethereal']);
+      setHasRestoredDraft(false);
     }
   }, [initialPiece, isOpen]);
 
+  // Autosave draft to localStorage so writers never lose their work
+  useEffect(() => {
+    if (!isOpen || initialPiece) return;
+    if (title.trim() || content.trim()) {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        title,
+        content,
+        type,
+        status,
+        cardTint,
+        moodTags,
+        updatedAt: Date.now()
+      }));
+      setLastAutoSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    }
+  }, [title, content, type, status, cardTint, moodTags, isOpen, initialPiece]);
+
+  // Tab close & reload warning guard if user has unsaved text
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (title.trim() || content.trim()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isOpen, title, content]);
+
   if (!isOpen) return null;
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    setTitle('');
+    setContent('');
+    setMoodTags(['Ethereal']);
+    setHasRestoredDraft(false);
+    setLastAutoSavedAt(null);
+  };
+
+  const handleClose = () => {
+    if (!initialPiece && (title.trim() || content.trim())) {
+      // Piece is already safely cached in localStorage
+    }
+    onClose();
+  };
 
   // Live writing metrics
   const cleanContent = content.trim();
@@ -126,6 +198,8 @@ export const WritingEditor: React.FC<WritingEditorProps> = ({
       synced: true
     };
 
+    localStorage.removeItem(DRAFT_KEY);
+    setHasRestoredDraft(false);
     onSave(piece);
     onClose();
   };
@@ -157,6 +231,13 @@ export const WritingEditor: React.FC<WritingEditorProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {lastAutoSavedAt && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full border border-emerald-300 dark:border-emerald-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Draft Autosaved ({lastAutoSavedAt})</span>
+              </span>
+            )}
+
             {onPrintPreview && (
               <button
                 type="button"
@@ -204,7 +285,7 @@ export const WritingEditor: React.FC<WritingEditorProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               aria-label="Close"
             >
@@ -212,6 +293,23 @@ export const WritingEditor: React.FC<WritingEditorProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Restored Unfinished Draft Alert */}
+        {hasRestoredDraft && (
+          <div className="px-5 py-2.5 bg-amber-100/90 dark:bg-amber-950/60 border-b-2 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-xs font-bold flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Restored your unfinished draft from your last session ({lastAutoSavedAt}).</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              className="text-amber-800 dark:text-amber-300 hover:underline font-black text-xs cursor-pointer"
+            >
+              Discard Draft
+            </button>
+          </div>
+        )}
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6">

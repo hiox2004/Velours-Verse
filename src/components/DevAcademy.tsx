@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { StorageService, SUPER_ADMIN_EMAIL, DEFAULT_AUTHOR_NOTE } from '../services/storage';
+import { SupabaseService } from '../services/supabaseService';
 import { WritingPiece, AuthorNote, UserProfile } from '../types/writing';
 import { getThemeGlassCardStyle } from '../types/theme';
 import { ThemeMotifIcon } from './ThemeIllustrations';
@@ -192,7 +193,43 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
     setTimeout(() => window.location.reload(), 1200);
   };
 
-  const allUsers = React.useMemo(() => StorageService.getAllUsers(), [usersRefreshKey]);
+  const [cloudUsers, setCloudUsers] = useState<UserProfile[]>([]);
+  const [dbMetrics, setDbMetrics] = useState<{
+    connected: boolean;
+    latencyMs: number;
+    counts: { profiles: number; pieces: number; penpals: number; comments: number };
+  } | null>(null);
+  const [isRefreshingDb, setIsRefreshingDb] = useState(false);
+
+  const fetchCloudData = async () => {
+    setIsRefreshingDb(true);
+    try {
+      const [profiles, metrics] = await Promise.all([
+        SupabaseService.getAllProfiles(),
+        SupabaseService.getDatabaseMetrics()
+      ]);
+      if (profiles && profiles.length > 0) {
+        setCloudUsers(profiles);
+        profiles.forEach(p => StorageService.updateUserInDirectory(p));
+      }
+      setDbMetrics(metrics);
+    } finally {
+      setIsRefreshingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCloudData();
+  }, [usersRefreshKey]);
+
+  const allUsers = React.useMemo(() => {
+    const local = StorageService.getAllUsers();
+    if (cloudUsers.length === 0) return local;
+    const map = new Map<string, UserProfile>();
+    local.forEach(u => map.set(u.email.toLowerCase(), u));
+    cloudUsers.forEach(u => map.set(u.email.toLowerCase(), u));
+    return Array.from(map.values());
+  }, [cloudUsers, usersRefreshKey]);
 
   const filteredUsers = React.useMemo(() => {
     let result = allUsers;
@@ -213,8 +250,9 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
     return result;
   }, [allUsers, userRoleFilter, userSearchQuery, devRoster]);
 
-  const handleToggleDevRole = (user: UserProfile) => {
+  const handleToggleDevRole = async (user: UserProfile) => {
     const isCurrentlyDev = devRoster.some(e => e.toLowerCase() === user.email.toLowerCase()) || user.role === 'developer';
+    const nextRole = isCurrentlyDev ? 'writer' : 'developer';
     if (isCurrentlyDev) {
       if (user.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
         setDiagnosticsMessage("Cannot revoke Super Admin role.");
@@ -222,17 +260,14 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
         return;
       }
       removeDevEmail(user.email);
-      const updatedUser: UserProfile = { ...user, role: 'writer' };
-      StorageService.updateUserInDirectory(updatedUser);
-      setSelectedUserForModal(updatedUser);
-      setUsersRefreshKey(k => k + 1);
     } else {
       addDevEmail(user.email);
-      const updatedUser: UserProfile = { ...user, role: 'developer' };
-      StorageService.updateUserInDirectory(updatedUser);
-      setSelectedUserForModal(updatedUser);
-      setUsersRefreshKey(k => k + 1);
     }
+    const updatedUser: UserProfile = { ...user, role: nextRole };
+    StorageService.updateUserInDirectory(updatedUser);
+    await SupabaseService.updateProfileRole(user.id, nextRole);
+    setSelectedUserForModal(updatedUser);
+    setUsersRefreshKey(k => k + 1);
   };
 
   const handleSwitchToUser = (user: UserProfile) => {
@@ -292,8 +327,9 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
     };
 
     StorageService.saveAuthorNote(newNote);
+    SupabaseService.saveAuthorNote(newNote);
     setAuthorNote(newNote);
-    setDispatchSuccessMessage('🎉 Note dispatched successfully! It will automatically pop up as an exquisite theme card.');
+    setDispatchSuccessMessage('🎉 Note dispatched to cloud database & all readers! It will automatically pop up as an exquisite theme card.');
     setTimeout(() => setDispatchSuccessMessage(null), 4000);
   };
 
@@ -462,7 +498,36 @@ CREATE POLICY "Authenticated users can post comments" ON public.comments FOR INS
 DROP POLICY IF EXISTS "Users can delete their own comments" ON public.comments;
 CREATE POLICY "Users can delete their own comments" ON public.comments FOR DELETE TO authenticated USING (auth.uid() = author_id);
 
--- 5. Auto-profile trigger on auth.users
+-- 5. Author Notes table (Creator Dispatches)
+CREATE TABLE IF NOT EXISTS public.author_notes (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  author_name TEXT NOT NULL,
+  author_role TEXT NOT NULL,
+  author_avatar TEXT,
+  target_audience TEXT DEFAULT 'all',
+  target_user_name TEXT DEFAULT 'All Writers & Dreamers',
+  tag TEXT DEFAULT 'Creator Dispatch',
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.author_notes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Active author notes viewable by everyone" ON public.author_notes;
+CREATE POLICY "Active author notes viewable by everyone" ON public.author_notes FOR SELECT USING (active = true);
+DROP POLICY IF EXISTS "Developers can manage author notes" ON public.author_notes;
+CREATE POLICY "Developers can manage author notes" ON public.author_notes FOR ALL TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'developer')
+);
+
+-- Developer God Mode full moderation on pieces
+DROP POLICY IF EXISTS "Developers full access to all pieces" ON public.pieces;
+CREATE POLICY "Developers full access to all pieces" ON public.pieces FOR ALL TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'developer')
+);
+
+-- 6. Auto-profile trigger on auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -1487,6 +1552,69 @@ CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXEC
       {/* TAB 4: RAW DATABASE INSPECTOR */}
       {activeTab === 'database' && (
         <div className="space-y-4">
+          {/* Live Cloud Database (Supabase PostgreSQL) Telemetry */}
+          <div
+            style={glassStyle}
+            className={`group relative p-6 rounded-2xl border-3 ${cardStyle.border} ${cardStyle.shadow} space-y-4 overflow-hidden backdrop-blur-md shadow-xs`}
+          >
+            <div className={`absolute top-0 left-0 right-0 h-1.5 ${cardStyle.accentBar}`} />
+            <div className="flex items-center justify-between relative z-10 pt-1">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${dbMetrics?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                  <h3 className="font-display-chic text-lg font-black text-black dark:text-white">
+                    Live Supabase PostgreSQL Cloud Telemetry
+                  </h3>
+                </div>
+                <p className="text-xs text-black dark:text-zinc-200 font-bold mt-0.5">
+                  Real-time database connection status, REST latency, and authoritative table row counts.
+                </p>
+              </div>
+
+              <button
+                disabled={isRefreshingDb}
+                onClick={fetchCloudData}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-white dark:bg-zinc-800 text-black dark:text-white border-2 border-black/30 dark:border-white/20 flex items-center gap-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-700 shadow-2xs cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingDb ? 'animate-spin' : ''}`} />
+                <span>{isRefreshingDb ? 'Pinging Cloud...' : 'Query Database'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+              <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 text-center">
+                <span className="text-[10px] font-bold text-black/60 dark:text-zinc-400 block uppercase">REST Latency</span>
+                <span className="font-mono text-lg font-black text-emerald-600 dark:text-emerald-400">
+                  {dbMetrics ? `${dbMetrics.latencyMs} ms` : 'Testing...'}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 text-center">
+                <span className="text-[10px] font-bold text-black/60 dark:text-zinc-400 block uppercase">Profiles</span>
+                <span className="font-mono text-lg font-black text-black dark:text-white">
+                  {dbMetrics?.counts.profiles ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 text-center">
+                <span className="text-[10px] font-bold text-black/60 dark:text-zinc-400 block uppercase">Pieces</span>
+                <span className="font-mono text-lg font-black text-black dark:text-white">
+                  {dbMetrics?.counts.pieces ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 text-center">
+                <span className="text-[10px] font-bold text-black/60 dark:text-zinc-400 block uppercase">Penpal Circles</span>
+                <span className="font-mono text-lg font-black text-black dark:text-white">
+                  {dbMetrics?.counts.penpals ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 text-center">
+                <span className="text-[10px] font-bold text-black/60 dark:text-zinc-400 block uppercase">Comments</span>
+                <span className="font-mono text-lg font-black text-black dark:text-white">
+                  {dbMetrics?.counts.comments ?? 0}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div
             style={glassStyle}
             className={`group relative p-6 rounded-2xl border-3 ${cardStyle.border} ${cardStyle.shadow} space-y-4 overflow-hidden backdrop-blur-md shadow-xs`}

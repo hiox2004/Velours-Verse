@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { WritingPiece, UserProfile, CommentItem } from '../types/writing';
+import { WritingPiece, UserProfile, CommentItem, AuthorNote } from '../types/writing';
 import { StorageService } from './storage';
 
 export class SupabaseService {
@@ -96,6 +96,26 @@ export class SupabaseService {
       const isValidUuid = (id?: string) => {
         return !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       };
+
+      // Check if profile exists; if not, proactively create to satisfy foreign key constraint
+      const { data: profileCheck } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', authorId)
+        .maybeSingle();
+
+      if (!profileCheck) {
+        const localProfile = StorageService.getActiveProfile();
+        await SupabaseService.upsertProfile({
+          id: authorId,
+          email: localProfile.email || '',
+          displayName: localProfile.displayName || 'Writer',
+          penpalId: localProfile.penpalId,
+          avatar: localProfile.avatar,
+          bio: localProfile.bio,
+          role: localProfile.role
+        });
+      }
 
       // Check if it exists and has a valid Supabase UUID format
       if (isValidUuid(piece.id)) {
@@ -328,6 +348,147 @@ export class SupabaseService {
         .eq('penpal_id', targetPenpalId);
     } catch (err) {
       console.warn('Remove penpal error:', err);
+    }
+  }
+
+  /**
+   * Fetch all registered profiles directly from Supabase (for Developer God Mode)
+   */
+  public static async getAllProfiles(): Promise<UserProfile[]> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !data) return [];
+
+      return data.map((p: any) => ({
+        id: p.id,
+        email: p.email || '',
+        displayName: p.display_name,
+        penpalId: p.penpal_id,
+        avatar: p.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${p.penpal_id}&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4`,
+        bio: p.bio || '',
+        favoriteDrink: p.favorite_drink || 'Tea',
+        favoriteQuote: p.favorite_quote || '',
+        writingGoalWords: p.writing_goal_words || 500,
+        penpalIds: [],
+        role: p.role || 'writer',
+        createdAt: p.created_at
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Update profile role in Supabase (God Mode Promotion / Demotion)
+   */
+  public static async updateProfileRole(userId: string, role: 'developer' | 'writer'): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role })
+        .eq('id', userId);
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Fetch live Supabase connection status, query latency, and exact table counts
+   */
+  public static async getDatabaseMetrics(): Promise<{
+    connected: boolean;
+    latencyMs: number;
+    counts: { profiles: number; pieces: number; penpals: number; comments: number };
+  }> {
+    const start = performance.now();
+    try {
+      const [profilesRes, piecesRes, penpalsRes, commentsRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('pieces').select('id', { count: 'exact', head: true }),
+        supabase.from('penpals').select('id', { count: 'exact', head: true }),
+        supabase.from('comments').select('id', { count: 'exact', head: true }),
+      ]);
+      const latencyMs = Math.round(performance.now() - start);
+      return {
+        connected: !profilesRes.error,
+        latencyMs,
+        counts: {
+          profiles: profilesRes.count ?? 0,
+          pieces: piecesRes.count ?? 0,
+          penpals: penpalsRes.count ?? 0,
+          comments: commentsRes.count ?? 0
+        }
+      };
+    } catch {
+      return {
+        connected: false,
+        latencyMs: 0,
+        counts: { profiles: 0, pieces: 0, penpals: 0, comments: 0 }
+      };
+    }
+  }
+
+  /**
+   * Fetch active Creator Note from cloud database
+   */
+  public static async getLatestAuthorNote(): Promise<AuthorNote | null> {
+    try {
+      const { data, error } = await supabase
+        .from('author_notes')
+        .select('*')
+        .eq('active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return null;
+
+      return {
+        id: data.id,
+        title: data.title,
+        content: data.content,
+        authorName: data.author_name,
+        authorRole: data.author_role,
+        authorAvatar: data.author_avatar,
+        targetAudience: data.target_audience || 'all',
+        targetUserName: data.target_user_name || 'All Writers & Dreamers',
+        tag: data.tag || 'Creator Dispatch',
+        createdAt: data.created_at,
+        active: data.active
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Dispatch Creator Note to cloud database
+   */
+  public static async saveAuthorNote(note: AuthorNote): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('author_notes')
+        .upsert({
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          author_name: note.authorName,
+          author_role: note.authorRole,
+          author_avatar: note.authorAvatar,
+          target_audience: note.targetAudience,
+          target_user_name: note.targetUserName,
+          tag: note.tag,
+          active: note.active,
+          created_at: note.createdAt
+        });
+      return !error;
+    } catch {
+      return false;
     }
   }
 }

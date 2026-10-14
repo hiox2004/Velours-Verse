@@ -90,6 +90,21 @@ CREATE TABLE IF NOT EXISTS public.comments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 5. AUTHOR_NOTES TABLE (Creator Dispatches)
+CREATE TABLE IF NOT EXISTS public.author_notes (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  author_name TEXT NOT NULL,
+  author_role TEXT NOT NULL,
+  author_avatar TEXT,
+  target_audience TEXT DEFAULT 'all',
+  target_user_name TEXT DEFAULT 'All Writers & Dreamers',
+  tag TEXT DEFAULT 'Creator Dispatch',
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==============================================================================
 -- 5. AUTOMATIC PROFILE CREATION TRIGGER ON AUTH.USERS (SECURITY DEFINER)
 -- ==============================================================================
@@ -358,3 +373,27 @@ CREATE POLICY "Users can delete their own comments"
   ON public.comments FOR DELETE 
   TO authenticated 
   USING (auth.uid() = author_id);
+
+-- E. AUTHOR_NOTES
+ALTER TABLE public.author_notes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Active author notes viewable by everyone" ON public.author_notes;
+CREATE POLICY "Active author notes viewable by everyone" 
+  ON public.author_notes FOR SELECT 
+  USING (active = true);
+
+DROP POLICY IF EXISTS "Developers can manage author notes" ON public.author_notes;
+CREATE POLICY "Developers can manage author notes" 
+  ON public.author_notes FOR ALL 
+  TO authenticated 
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'developer')
+  );
+
+-- F. DEVELOPER GOD MODE MODERATION ACCESS ON PIECES
+DROP POLICY IF EXISTS "Developers full access to all pieces" ON public.pieces;
+CREATE POLICY "Developers full access to all pieces" 
+  ON public.pieces FOR ALL 
+  TO authenticated 
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'developer')
+  );

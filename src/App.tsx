@@ -53,10 +53,14 @@ function MainApp() {
   };
 
   const [currentView, setCurrentView] = useState<AppView>(getInitialRoute);
+  const [hasResolvedInitialAuth, setHasResolvedInitialAuth] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const navigateTo = (view: AppView) => {
     // Access control: Guest users trying to navigate to anything other than landing/auth are asked to sign in
     if (!isAuthenticated && view !== 'landing' && view !== 'auth') {
+      const targetPath = `/${view === 'dev_academy' ? 'dev' : view}`;
+      sessionStorage.setItem('velours_intended_path', targetPath);
       setCurrentView('auth');
       window.history.pushState(null, '', '/auth');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -75,6 +79,25 @@ function MainApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // On page load: once auth session resolves, honor direct deep routes or prompt to sign in
+  useEffect(() => {
+    if (!isAuthLoading && !hasResolvedInitialAuth) {
+      setHasResolvedInitialAuth(true);
+      const initial = getInitialRoute();
+
+      if (!isAuthenticated && initial !== 'landing' && initial !== 'auth') {
+        // Deep route requested while unauthenticated: remember path and ask to login
+        sessionStorage.setItem('velours_intended_path', window.location.pathname);
+        setCurrentView('auth');
+        window.history.replaceState(null, '', '/auth');
+      } else if (isAuthenticated && initial === 'dev_academy' && !isDeveloper) {
+        // Non-developer attempting direct /dev URL
+        setCurrentView('feed');
+        window.history.replaceState(null, '', '/feed');
+      }
+    }
+  }, [isAuthLoading, isAuthenticated, hasResolvedInitialAuth, isDeveloper]);
+
   useEffect(() => {
     const handlePopState = () => {
       setCurrentView(getInitialRoute());
@@ -83,13 +106,34 @@ function MainApp() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // When user completes Google OAuth or hash contains access_token, route to feed seamlessly
+  // When user completes Google OAuth or hash contains access_token, route to intended page or feed
   useEffect(() => {
     if (isAuthenticated && (currentView === 'auth' || window.location.hash.includes('access_token'))) {
+      const intended = sessionStorage.getItem('velours_intended_path');
+      if (intended) {
+        sessionStorage.removeItem('velours_intended_path');
+        const cleanIntended = intended.replace(/^\/+|\/+$/g, '');
+        if (cleanIntended === 'penpals') {
+          setCurrentView('penpals');
+          window.history.replaceState(null, '', '/penpals');
+          return;
+        }
+        if ((cleanIntended === 'dev' || cleanIntended === 'dev_academy') && isDeveloper) {
+          setCurrentView('dev_academy');
+          window.history.replaceState(null, '', '/dev');
+          return;
+        }
+        if (cleanIntended === 'widgets') {
+          setCurrentView('widgets');
+          window.history.replaceState(null, '', '/widgets');
+          return;
+        }
+      }
       setCurrentView('feed');
       window.history.replaceState(null, '', '/feed');
     }
-  }, [isAuthenticated, currentView]);
+  }, [isAuthenticated, currentView, isDeveloper]);
+
   const [pieces, setPieces] = useState<WritingPiece[]>(() => StorageService.getPieces());
   const [selectedPieceForReader, setSelectedPieceForReader] = useState<WritingPiece | null>(null);
   const [pieceToEdit, setPieceToEdit] = useState<WritingPiece | null>(null);
@@ -100,6 +144,16 @@ function MainApp() {
   // Author Note Modal state (Users can open it via the banner or letter button)
   const [activeAuthorNote, setActiveAuthorNote] = useState<AuthorNote | null>(() => StorageService.getAuthorNote());
   const [isAuthorNoteModalOpen, setIsAuthorNoteModalOpen] = useState<boolean>(false);
+
+  // Sync latest cloud Author Note on initial load
+  useEffect(() => {
+    SupabaseService.getLatestAuthorNote().then(cloudNote => {
+      if (cloudNote) {
+        StorageService.saveAuthorNote(cloudNote);
+        setActiveAuthorNote(cloudNote);
+      }
+    });
+  }, []);
 
   // Refresh active author note on view switch
   useEffect(() => {
@@ -233,6 +287,8 @@ function MainApp() {
     setSyncState('syncing');
     const updated = StorageService.savePiece(piece);
     setPieces(updated);
+    setSaveNotice(`"${piece.title || 'Piece'}" saved cleanly to archives & cloud.`);
+    setTimeout(() => setSaveNotice(null), 3500);
 
     if (currentUser?.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
       SupabaseService.savePiece(piece, currentUser.id).then((cloudResult) => {
@@ -634,14 +690,42 @@ function MainApp() {
         )}
 
         {/* View: Developer God Mode & Academy (Strictly restricted to hiox2004) */}
-        {currentView === 'dev_academy' && isDeveloper && (
-          <DevAcademy
-            pieces={pieces}
-            onDeletePiece={handleDeletePiece}
-            onOpenPiece={p => setSelectedPieceForReader(p)}
-          />
+        {currentView === 'dev_academy' && (
+          isDeveloper ? (
+            <DevAcademy
+              pieces={pieces}
+              onDeletePiece={handleDeletePiece}
+              onOpenPiece={p => setSelectedPieceForReader(p)}
+            />
+          ) : (
+            <div className="max-w-md mx-auto px-4 py-20 text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-700 mx-auto flex items-center justify-center border border-rose-300">
+                <Lock className="w-6 h-6" />
+              </div>
+              <h2 className="font-display-chic text-xl font-bold text-zinc-950 dark:text-white">
+                Developer Access Restricted
+              </h2>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                This console is reserved for platform engineering. You are currently signed in as {currentUser?.email || 'Guest'}.
+              </p>
+              <button
+                onClick={() => navigateTo('feed')}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-950 text-white dark:bg-white dark:text-black cursor-pointer hover:opacity-90"
+              >
+                Return to Sanctuary Feed
+              </button>
+            </div>
+          )
         )}
       </main>
+
+      {/* Floating Save Confirmation Notice */}
+      {saveNotice && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold shadow-2xl border-2 border-black/20 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>{saveNotice}</span>
+        </div>
+      )}
 
       {/* Reader Modal */}
       <ReaderModal
