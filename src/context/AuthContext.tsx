@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../types/writing';
 import { StorageService, SUPER_ADMIN_EMAIL, ANONYMOUS_GUEST_PROFILE } from '../services/storage';
 import { supabase } from '../services/supabase';
@@ -36,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [devRoster, setDevRoster] = useState<string[]>(() => StorageService.getDevRoster());
 
+  // In-memory guard to prevent repeated/looping sync calls in the same tab lifecycle
+  const syncedUserSessionIds = useRef<Set<string>>(new Set());
+
   const isAuthenticated = Boolean(currentUser && currentUser.id && currentUser.id !== 'guest');
   const normalizedEmail = (currentUser?.email || '').toLowerCase().trim();
   // Developer Academy is strictly restricted to hiox2004@gmail.com with verified authentication
@@ -47,17 +50,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Listen for Supabase Auth state changes
   useEffect(() => {
     let isMounted = true;
-    let syncingUserId: string | null = null;
 
     const handleSession = async (session: any) => {
       if (!isMounted) return;
       if (session?.user) {
-        if (syncingUserId === session.user.id) return;
-        syncingUserId = session.user.id;
+        // Prevent redundant/looping syncs for the same user in this session lifecycle
+        if (syncedUserSessionIds.current.has(session.user.id)) {
+          if (isMounted) setIsAuthLoading(false);
+          return;
+        }
+        syncedUserSessionIds.current.add(session.user.id);
         try {
           await syncUserSession(session.user);
-        } finally {
-          syncingUserId = null;
+        } catch (err) {
+          console.warn('Session sync notice:', err);
         }
       } else {
         const guest = ANONYMOUS_GUEST_PROFILE;
@@ -161,6 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     await supabase.auth.signOut().catch(() => {});
     localStorage.removeItem('velours_user_profile_v1');
+    syncedUserSessionIds.current.clear();
     const guest = StorageService.getActiveProfile();
     setCurrentUser(guest);
   };

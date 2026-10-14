@@ -191,12 +191,32 @@ export class SupabaseService {
       if (profile.penpalId) {
         payload.penpal_id = profile.penpalId;
       }
-      const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
-      if (error) {
-        console.warn('Upsert profile error:', error.message);
+
+      // Check if profile already exists in DB to perform targeted operation
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', profile.id)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(payload)
+          .eq('id', profile.id);
+        if (updateError) {
+          console.warn('Profile update notice (RLS):', updateError.message);
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert(payload);
+        if (insertError) {
+          console.warn('Profile insert notice (RLS):', insertError.message);
+        }
       }
     } catch (err) {
-      console.warn('Upsert profile error:', err);
+      console.warn('Profile sync exception:', err);
     }
   }
 
