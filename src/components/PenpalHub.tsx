@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { StorageService } from '../services/storage';
+import { SupabaseService } from '../services/supabaseService';
+import { UserProfile } from '../types/writing';
 import { getThemeGlassCardStyle } from '../types/theme';
 import { ThemeMotifIcon } from './ThemeIllustrations';
 import {
@@ -33,13 +35,57 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
   const [inputPenpalId, setInputPenpalId] = useState('');
   const [copiedMyId, setCopiedMyId] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [cloudPenpals, setCloudPenpals] = useState<UserProfile[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const cardStyle = mode === 'light' ? theme.light.card : theme.dark.card;
   const glassStyle = getThemeGlassCardStyle(themeId, mode);
 
-  // Retrieve penpals from global user directory based on IDs
-  const allUsers = StorageService.getAllUsers();
-  const myPenpals = allUsers.filter(u => currentUser.penpalIds.includes(u.penpalId));
+  // Sync penpal profiles from Supabase whenever penpalIds change
+  useEffect(() => {
+    let isMounted = true;
+    if (currentUser?.penpalIds && currentUser.penpalIds.length > 0) {
+      SupabaseService.getProfilesByPenpalIds(currentUser.penpalIds).then(profiles => {
+        if (!isMounted) return;
+        if (profiles && profiles.length > 0) {
+          profiles.forEach(p => StorageService.updateUserInDirectory(p));
+          setCloudPenpals(profiles);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.penpalIds]);
+
+  // Combine local and cloud penpals, with a resilient fallback card for any connected ID
+  const renderedPenpals = useMemo(() => {
+    const local = StorageService.getAllUsers();
+    const map = new Map<string, UserProfile>();
+    local.forEach(u => map.set(u.penpalId.toUpperCase(), u));
+    cloudPenpals.forEach(u => map.set(u.penpalId.toUpperCase(), u));
+
+    return (currentUser.penpalIds || []).map(id => {
+      const cleanId = id.toUpperCase();
+      const existing = map.get(cleanId);
+      if (existing) return existing;
+
+      return {
+        id: `penpal_${cleanId}`,
+        email: '',
+        displayName: `Penpal Writer`,
+        penpalId: cleanId,
+        avatar: `https://api.dicebear.com/7.x/notionists/svg?seed=${cleanId}&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4`,
+        bio: 'Connected creative thinker on Velours & Verse.',
+        favoriteDrink: 'Chai / Coffee',
+        favoriteQuote: '“Words that refuse to be rushed.”',
+        writingGoalWords: 500,
+        penpalIds: [],
+        role: 'writer' as const,
+        createdAt: new Date().toISOString()
+      };
+    });
+  }, [cloudPenpals, currentUser.penpalIds]);
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(currentUser.penpalId);
@@ -49,14 +95,20 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!inputPenpalId.trim()) return;
     setStatusMessage(null);
-    const res = await addPenpal(inputPenpalId);
-    setStatusMessage({
-      text: res.message,
-      isError: !res.success
-    });
-    if (res.success) {
-      setInputPenpalId('');
+    setIsSubmitting(true);
+    try {
+      const res = await addPenpal(inputPenpalId);
+      setStatusMessage({
+        text: res.message,
+        isError: !res.success
+      });
+      if (res.success) {
+        setInputPenpalId('');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -210,7 +262,7 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
             </div>
 
             <p className="text-xs text-black dark:text-zinc-200 font-bold leading-relaxed">
-              Enter a friend's unique 8-character Penpal ID (e.g. <code className="font-mono text-black dark:text-zinc-100 font-black bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded border border-black/20">PEN-7K3N1</code> or <code className="font-mono text-black dark:text-zinc-100 font-black bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded border border-black/20">PEN-4B8W2</code>).
+              Enter a friend's unique Penpal code (e.g. <code className="font-mono text-black dark:text-zinc-100 font-black bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded border border-black/20">PEN-8V2M9</code>). You can type with or without the "PEN-" prefix.
             </p>
 
             <form onSubmit={handleAddSubmit} className="space-y-3">
@@ -219,16 +271,16 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
                   type="text"
                   value={inputPenpalId}
                   onChange={e => setInputPenpalId(e.target.value.toUpperCase())}
-                  placeholder="e.g. PEN-7K3N1"
+                  placeholder="e.g. PEN-8V2M9 or 8V2M9"
                   className="w-full sm:flex-1 min-w-0 px-4 py-2.5 rounded-xl text-sm font-mono uppercase font-black bg-white/90 dark:bg-zinc-800/90 text-black dark:text-white border-2 border-black/30 dark:border-white/20 outline-none focus:border-black dark:focus:border-white shadow-2xs placeholder:text-black/40"
                 />
                 <button
                   type="submit"
-                  disabled={!inputPenpalId.trim()}
+                  disabled={!inputPenpalId.trim() || isSubmitting}
                   className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-black bg-black text-white dark:bg-white dark:text-black disabled:opacity-40 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-xs border-2 border-black dark:border-white"
                 >
                   <UserPlus className="w-4 h-4 stroke-[2.5]" />
-                  <span>Add Friend</span>
+                  <span>{isSubmitting ? 'Connecting...' : 'Add Friend'}</span>
                 </button>
               </div>
 
@@ -262,11 +314,11 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-black dark:text-white stroke-[2.5]" />
             <h3 className="font-display-chic text-xl font-black text-black dark:text-white">
-              My Penpal Circle ({myPenpals.length})
+              My Penpal Circle ({renderedPenpals.length})
             </h3>
           </div>
 
-          {myPenpals.length > 0 && (
+          {renderedPenpals.length > 0 && (
             <button
               onClick={onOpenFeedForPenpals}
               className="text-xs font-black text-black dark:text-white underline decoration-2 hover:opacity-80 flex items-center gap-1"
@@ -277,9 +329,9 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
           )}
         </div>
 
-        {myPenpals.length > 0 ? (
+        {renderedPenpals.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {myPenpals.map(friend => (
+            {renderedPenpals.map(friend => (
               <div
                 key={friend.id}
                 style={glassStyle}

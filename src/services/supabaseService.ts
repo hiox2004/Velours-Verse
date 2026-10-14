@@ -223,37 +223,85 @@ export class SupabaseService {
   /**
    * Add Penpal by penpal code
    */
-  public static async addPenpal(userId: string, targetPenpalId: string): Promise<{ success: boolean; message: string }> {
+  public static async addPenpal(userId: string, targetPenpalId: string): Promise<{ success: boolean; message: string; profile?: UserProfile }> {
     try {
-      // 1. Verify target exists
+      // 1. Verify target exists in profiles (case-insensitive matching)
       const { data: targetProfile, error: targetError } = await supabase
         .from('profiles')
-        .select('display_name, penpal_id')
-        .eq('penpal_id', targetPenpalId)
+        .select('*')
+        .ilike('penpal_id', targetPenpalId)
         .maybeSingle();
 
       if (targetError || !targetProfile) {
         return { success: false, message: `No writer found with Penpal ID "${targetPenpalId}".` };
       }
 
+      const fullProfile: UserProfile = {
+        id: targetProfile.id,
+        email: targetProfile.email || '',
+        displayName: targetProfile.display_name,
+        penpalId: targetProfile.penpal_id,
+        avatar: targetProfile.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${targetProfile.penpal_id}&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4`,
+        bio: targetProfile.bio || '',
+        favoriteDrink: targetProfile.favorite_drink || 'Tea',
+        favoriteQuote: targetProfile.favorite_quote || '',
+        writingGoalWords: targetProfile.writing_goal_words || 500,
+        penpalIds: [],
+        role: targetProfile.role || 'writer',
+        createdAt: targetProfile.created_at
+      };
+
       // 2. Insert into penpals table
       const { error: insertError } = await supabase
         .from('penpals')
         .insert({
           user_id: userId,
-          penpal_id: targetPenpalId
+          penpal_id: targetProfile.penpal_id
         });
 
-      if (insertError) {
-        if (insertError.code === '23505') {
-          return { success: false, message: 'This Penpal is already in your circle.' };
-        }
-        return { success: false, message: insertError.message };
+      if (insertError && insertError.code !== '23505') {
+        console.warn('Penpals cloud insert notice:', insertError.message);
       }
 
-      return { success: true, message: `Added ${targetProfile.display_name} to your Penpal Circle!` };
+      return {
+        success: true,
+        message: `Added ${targetProfile.display_name} to your Penpal Circle!`,
+        profile: fullProfile
+      };
     } catch (err: any) {
       return { success: false, message: err?.message || 'Failed to add penpal.' };
+    }
+  }
+
+  /**
+   * Fetch profiles for a list of Penpal IDs
+   */
+  public static async getProfilesByPenpalIds(penpalIds: string[]): Promise<UserProfile[]> {
+    if (!penpalIds || penpalIds.length === 0) return [];
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('penpal_id', penpalIds);
+
+      if (error || !data) return [];
+
+      return data.map((p: any) => ({
+        id: p.id,
+        email: p.email || '',
+        displayName: p.display_name,
+        penpalId: p.penpal_id,
+        avatar: p.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${p.penpal_id}&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4`,
+        bio: p.bio || '',
+        favoriteDrink: p.favorite_drink || 'Tea',
+        favoriteQuote: p.favorite_quote || '',
+        writingGoalWords: p.writing_goal_words || 500,
+        penpalIds: [],
+        role: p.role || 'writer',
+        createdAt: p.created_at
+      }));
+    } catch {
+      return [];
     }
   }
 

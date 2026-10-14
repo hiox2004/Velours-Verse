@@ -184,39 +184,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addPenpal = async (penpalIdInput: string): Promise<{ success: boolean; message: string }> => {
     if (!currentUser) return { success: false, message: 'Please sign in to add penpals.' };
-    const cleanId = penpalIdInput.trim().toUpperCase();
+    
+    // Normalize Penpal ID: handle missing "PEN-", lowercase, hashtags, spaces
+    let cleanId = penpalIdInput.trim().toUpperCase().replace(/^[#\s]+/, '');
+    if (!cleanId.startsWith('PEN-') && cleanId.length === 5) {
+      cleanId = `PEN-${cleanId}`;
+    }
     if (!cleanId) return { success: false, message: 'Please enter a valid Penpal ID.' };
-    if (cleanId === currentUser.penpalId) return { success: false, message: 'You cannot add your own Penpal ID!' };
+    
+    const myCode = (currentUser.penpalId || '').toUpperCase();
+    if (cleanId === myCode || cleanId.replace(/^PEN-/, '') === myCode.replace(/^PEN-/, '')) {
+      return { success: false, message: 'You cannot add your own Penpal ID!' };
+    }
 
-    if (currentUser.penpalIds.includes(cleanId)) {
+    if (currentUser.penpalIds.includes(cleanId) || currentUser.penpalIds.some(id => id.replace(/^PEN-/, '') === cleanId.replace(/^PEN-/, ''))) {
       return { success: false, message: 'This Penpal is already in your circle.' };
     }
 
+    // 1. Search Supabase Cloud first if authenticated
     if (currentUser.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
       const res = await SupabaseService.addPenpal(currentUser.id, cleanId);
-      if (res.success) {
-        const nextPenpals = [...currentUser.penpalIds, cleanId];
+      if (res.success && res.profile) {
+        StorageService.updateUserInDirectory(res.profile);
+        const resolvedId = res.profile.penpalId || cleanId;
+        const nextPenpals = Array.from(new Set([...currentUser.penpalIds, resolvedId]));
         setCurrentUser(prev => ({ ...prev, penpalIds: nextPenpals }));
+        StorageService.saveActiveProfile({ ...currentUser, penpalIds: nextPenpals });
+        return { success: true, message: res.message };
       }
-      return res;
     }
 
-    // Local fallback for seed profiles
+    // 2. Fallback to local user directory and seeded authors (e.g. Aura Dev PEN-8V2M9)
     const allUsers = StorageService.getAllUsers();
-    const targetUser = allUsers.find(u => u.penpalId.toUpperCase() === cleanId);
-    if (!targetUser) {
-      return { success: false, message: `No penpal found with ID ${cleanId}.` };
+    const targetUser = allUsers.find(u => {
+      const uCode = (u.penpalId || '').toUpperCase();
+      return uCode === cleanId || 
+             uCode.replace(/^PEN-/, '') === cleanId.replace(/^PEN-/, '') ||
+             uCode === `PEN-${cleanId}`;
+    });
+
+    if (targetUser) {
+      const resolvedId = targetUser.penpalId;
+      const nextPenpals = Array.from(new Set([...currentUser.penpalIds, resolvedId]));
+      setCurrentUser(prev => ({ ...prev, penpalIds: nextPenpals }));
+      StorageService.saveActiveProfile({ ...currentUser, penpalIds: nextPenpals });
+      StorageService.updateUserInDirectory(targetUser);
+      return { success: true, message: `Added ${targetUser.displayName} to your Penpal Circle!` };
     }
 
-    const nextPenpals = [...currentUser.penpalIds, cleanId];
-    updateProfile({ penpalIds: nextPenpals });
-    return { success: true, message: `Added ${targetUser.displayName} to your Penpal Circle!` };
+    return {
+      success: false,
+      message: `No writer found with Penpal ID "${cleanId}". Make sure they have shared their 5-character Penpal code from their profile.`
+    };
   };
 
   const removePenpal = async (penpalIdToRemove: string) => {
     if (!currentUser) return;
     const nextPenpals = currentUser.penpalIds.filter(id => id !== penpalIdToRemove);
     setCurrentUser(prev => ({ ...prev, penpalIds: nextPenpals }));
+    StorageService.saveActiveProfile({ ...currentUser, penpalIds: nextPenpals });
     if (currentUser.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
       await SupabaseService.removePenpal(currentUser.id, penpalIdToRemove);
     }
