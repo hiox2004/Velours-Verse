@@ -79,7 +79,7 @@ export class SupabaseService {
   /**
    * Save piece (Insert or Update in Supabase)
    */
-  public static async savePiece(piece: WritingPiece, authorId: string): Promise<boolean> {
+  public static async savePiece(piece: WritingPiece, authorId: string): Promise<string | boolean> {
     try {
       const payload = {
         title: piece.title,
@@ -93,26 +93,37 @@ export class SupabaseService {
         updated_at: new Date().toISOString()
       };
 
-      // Check if it exists or has UUID format
-      const isExistingUuid = piece.id && piece.id.includes('-');
-      if (isExistingUuid && !piece.id.startsWith('piece-')) {
+      const isValidUuid = (id?: string) => {
+        return !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      };
+
+      // Check if it exists and has a valid Supabase UUID format
+      if (isValidUuid(piece.id)) {
         const { error } = await supabase
           .from('pieces')
           .update(payload)
           .eq('id', piece.id);
-        if (!error) return true;
+        if (!error) return piece.id;
       }
 
-      // Insert new piece
-      const { error: insertError } = await supabase
+      // Insert new piece into Supabase
+      const { data, error: insertError } = await supabase
         .from('pieces')
         .insert({
           ...payload,
           author_id: authorId
-        });
+        })
+        .select('id')
+        .single();
 
-      return !insertError;
-    } catch {
+      if (insertError) {
+        console.warn('Supabase piece insert notice:', insertError.message);
+        return false;
+      }
+
+      return data?.id || true;
+    } catch (err) {
+      console.warn('Supabase savePiece exception:', err);
       return false;
     }
   }

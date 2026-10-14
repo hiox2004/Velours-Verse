@@ -235,7 +235,17 @@ function MainApp() {
     setPieces(updated);
 
     if (currentUser?.id && !currentUser.id.startsWith('user_') && !currentUser.id.startsWith('guest')) {
-      SupabaseService.savePiece(piece, currentUser.id).then(() => {
+      SupabaseService.savePiece(piece, currentUser.id).then((cloudResult) => {
+        if (typeof cloudResult === 'string' && cloudResult !== piece.id) {
+          // Re-index piece with assigned cloud UUID so future edits and comments map to this record
+          const syncedPiece = { ...piece, id: cloudResult };
+          StorageService.deletePiece(piece.id);
+          const finalPieces = StorageService.savePiece(syncedPiece);
+          setPieces(finalPieces);
+          if (selectedPieceForReader && selectedPieceForReader.id === piece.id) {
+            setSelectedPieceForReader(syncedPiece);
+          }
+        }
         setSyncState('synced');
       });
     } else {

@@ -377,8 +377,8 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
   const draftPieces = pieces.filter(p => p.status === 'draft');
   const publishedPieces = pieces.filter(p => p.status === 'published');
 
-  const SUPABASE_SCHEMA_SQL = `-- Velours & Verse Production Supabase Schema
--- 1. Create Profiles table
+  const SUPABASE_SCHEMA_SQL = `-- Velours & Verse Production Supabase Schema & Automation Trigger
+-- 1. Profiles table
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
@@ -386,43 +386,30 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   penpal_id TEXT UNIQUE NOT NULL,
   avatar TEXT,
   bio TEXT,
-  favorite_drink TEXT,
-  favorite_quote TEXT,
+  favorite_drink TEXT DEFAULT 'Vanilla Chai Latte',
+  favorite_quote TEXT DEFAULT '“Words that refuse to be rushed.”',
   writing_goal_words INTEGER DEFAULT 500,
   role TEXT DEFAULT 'writer',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Profiles Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
-CREATE POLICY "Public profiles are viewable by everyone"
-  ON public.profiles FOR SELECT
-  USING (true);
-
+CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
-CREATE POLICY "Users can insert their own profile"
-  ON public.profiles FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = id);
-
+CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
-CREATE POLICY "Users can update their own profile"
-  ON public.profiles FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
--- 2. Create Pieces table
+-- 2. Pieces table
 CREATE TABLE IF NOT EXISTS public.pieces (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  author_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
-  type TEXT CHECK (type IN ('poem', 'story', 'prose', 'journal', 'letter')),
-  status TEXT CHECK (status IN ('draft', 'published', 'penpals')) DEFAULT 'draft',
-  mood_tags TEXT[] DEFAULT '{}',
+  type TEXT NOT NULL CHECK (type IN ('poem', 'story', 'prose', 'journal', 'letter')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'penpals')),
+  mood_tags TEXT[] DEFAULT ARRAY[]::TEXT[],
   card_tint TEXT DEFAULT 'default',
   stars INTEGER DEFAULT 0,
   word_count INTEGER DEFAULT 0,
@@ -431,19 +418,74 @@ CREATE TABLE IF NOT EXISTS public.pieces (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Pieces Row Level Security (RLS)
 ALTER TABLE public.pieces ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Public can view published pieces" ON public.pieces;
-CREATE POLICY "Public can view published pieces"
-  ON public.pieces FOR SELECT
-  USING (status = 'published' OR auth.uid() = author_id);
+CREATE POLICY "Public can view published pieces" ON public.pieces FOR SELECT USING (status = 'published' OR auth.uid() = author_id);
+DROP POLICY IF EXISTS "Users can insert pieces" ON public.pieces;
+CREATE POLICY "Users can insert pieces" ON public.pieces FOR INSERT TO authenticated WITH CHECK (auth.uid() = author_id);
+DROP POLICY IF EXISTS "Users can update their own pieces" ON public.pieces;
+CREATE POLICY "Users can update their own pieces" ON public.pieces FOR UPDATE TO authenticated USING (auth.uid() = author_id) WITH CHECK (auth.uid() = author_id);
+DROP POLICY IF EXISTS "Users can delete their own pieces" ON public.pieces;
+CREATE POLICY "Users can delete their own pieces" ON public.pieces FOR DELETE TO authenticated USING (auth.uid() = author_id);
 
-DROP POLICY IF EXISTS "Authors full access to own pieces" ON public.pieces;
-CREATE POLICY "Authors full access to own pieces"
-  ON public.pieces FOR ALL
-  TO authenticated
-  USING (auth.uid() = author_id);`;
+-- 3. Penpals table
+CREATE TABLE IF NOT EXISTS public.penpals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  penpal_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, penpal_id)
+);
+
+ALTER TABLE public.penpals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their penpals" ON public.penpals;
+CREATE POLICY "Users can view their penpals" ON public.penpals FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert penpals" ON public.penpals;
+CREATE POLICY "Users can insert penpals" ON public.penpals FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete penpals" ON public.penpals;
+CREATE POLICY "Users can delete penpals" ON public.penpals FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- 4. Comments table
+CREATE TABLE IF NOT EXISTS public.comments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  piece_id UUID REFERENCES public.pieces(id) ON DELETE CASCADE NOT NULL,
+  author_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  text TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public comments are readable by everyone" ON public.comments;
+CREATE POLICY "Public comments are readable by everyone" ON public.comments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Authenticated users can post comments" ON public.comments;
+CREATE POLICY "Authenticated users can post comments" ON public.comments FOR INSERT TO authenticated WITH CHECK (auth.uid() = author_id);
+DROP POLICY IF EXISTS "Users can delete their own comments" ON public.comments;
+CREATE POLICY "Users can delete their own comments" ON public.comments FOR DELETE TO authenticated USING (auth.uid() = author_id);
+
+-- 5. Auto-profile trigger on auth.users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, display_name, penpal_id, avatar, bio, favorite_drink, favorite_quote, writing_goal_words, role)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    'PEN-' || UPPER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 5)),
+    COALESCE(new.raw_user_meta_data->>'avatar_url', 'https://api.dicebear.com/7.x/notionists/svg?seed=' || new.id || '&backgroundColor=ffdfbf,ffd5dc,d1d4f9'),
+    'Creative writer on Velours & Verse. Drafting quiet verses and unhurried thoughts.',
+    'Vanilla Chai Latte',
+    '“I write to find out what I’m talking about.” — Edward Albee',
+    500,
+    CASE WHEN LOWER(new.email) = 'hiox2004@gmail.com' THEN 'developer' ELSE 'writer' END
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();`;
 
   const VERCEL_CONFIG_JSON = `{
   "buildCommand": "npm run build",
