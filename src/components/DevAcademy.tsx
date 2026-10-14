@@ -100,8 +100,8 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
   const [noteTitle, setNoteTitle] = useState(authorNote?.title || 'A Handwritten Note from the Creator 💌');
   const [noteContent, setNoteContent] = useState(authorNote?.content || DEFAULT_AUTHOR_NOTE.content);
   const [noteRecipientType, setNoteRecipientType] = useState<'all' | 'custom'>(authorNote?.targetAudience === 'all' ? 'all' : 'custom');
-  const [noteTargetPenpal, setNoteTargetPenpal] = useState(authorNote?.targetAudience === 'all' ? 'PEN-7K3N1' : authorNote?.targetAudience || 'PEN-7K3N1');
-  const [noteTargetName, setNoteTargetName] = useState(authorNote?.targetUserName || 'Clara Delacroix');
+  const [noteTargetPenpal, setNoteTargetPenpal] = useState(authorNote?.targetAudience === 'all' ? 'PEN-ALL' : authorNote?.targetAudience || 'PEN-ALL');
+  const [noteTargetName, setNoteTargetName] = useState(authorNote?.targetUserName || 'All Creative Writers');
   const [noteTag, setNoteTag] = useState(authorNote?.tag || 'Creator Dispatch');
   const [noteAuthorName, setNoteAuthorName] = useState(currentUser.displayName || 'Aura Dev');
   const [noteAuthorRole, setNoteAuthorRole] = useState(authorNote?.authorRole || 'Platform Creator & Lead Developer');
@@ -147,11 +147,11 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
         content: `We brought the blossoms home wrapped in newspaper that smelled of rain and yesterday's finance section.\n\nCut them on an angle, she said. As if angles could convince dying things to drink. By midnight, the water in the cut-crystal vase had turned cloudy and fragrant, like gin infused with regret.`,
         type: 'poem',
         status: 'published',
-        authorId: 'user_clara',
-        authorDisplayName: 'Clara Delacroix',
-        authorPenpalId: 'PEN-7K3N1',
-        authorEmail: 'clara.verse@penpal.org',
-        authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+        authorId: 'editorial_studio',
+        authorDisplayName: 'Velours Editorial',
+        authorPenpalId: 'PEN-ED01',
+        authorEmail: 'editorial@veloursverse.app',
+        authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=editorial&backgroundColor=ffd5dc',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         stars: 28,
@@ -166,14 +166,14 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
       {
         id: `piece_seed_${Date.now()}_2`,
         title: 'The Sound of a 35mm Shutter in Venice',
-        content: `Every photograph is an admission of failure. You press the copper button because your memory is a sieve that leaks light.\n\nOutside the café on the Zattere, the vaporetto engines churned the lagoon into jade foam. Julian loaded a fresh roll of Ilford HP5. The clicks of the spool were the only punctual things in Italy.`,
+        content: `Every photograph is an admission of failure. You press the copper button because your memory is a sieve that leaks light.\n\nOutside the café on the Zattere, the vaporetto engines churned the lagoon into jade foam. The photographer loaded a fresh roll of Ilford HP5. The clicks of the spool were the only punctual things in Italy.`,
         type: 'story',
         status: 'published',
-        authorId: 'user_julian',
-        authorDisplayName: 'Julian K.',
-        authorPenpalId: 'PEN-4B8W2',
-        authorEmail: 'julian.prose@penpal.org',
-        authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        authorId: 'editorial_studio',
+        authorDisplayName: 'Velours Editorial',
+        authorPenpalId: 'PEN-ED01',
+        authorEmail: 'editorial@veloursverse.app',
+        authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=editorial&backgroundColor=ffd5dc',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         stars: 35,
@@ -1127,7 +1127,7 @@ CREATE POLICY "Authors full access to own pieces"
                         type="text"
                         value={noteTargetName}
                         onChange={e => setNoteTargetName(e.target.value)}
-                        placeholder="e.g. Clara Delacroix"
+                        placeholder="e.g. Fellow Thinker or All Writers"
                         className="w-full px-3 py-2 rounded-xl border-2 border-black dark:border-zinc-600 bg-white dark:bg-zinc-800 text-black dark:text-white text-xs font-bold"
                       />
                     </div>

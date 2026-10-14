@@ -152,25 +152,60 @@ function MainApp() {
 
   // Filtered pieces based on search, status, and type
   const filteredPieces = useMemo(() => {
-    let result = pieces;
+    // Strict access control: private drafts and penpal letters are only visible to authorized viewers
+    const canAccessPiece = (p: WritingPiece) => {
+      // 1. Published pieces are public to the entire sanctuary
+      if (p.status === 'published') {
+        return true;
+      }
+
+      // 2. Drafts are private to author (or developer/admin)
+      if (p.status === 'draft') {
+        if (isDeveloper) return true;
+        if (!currentUser) return false;
+        return (
+          p.authorId === currentUser.id ||
+          (Boolean(p.authorEmail) && Boolean(currentUser.email) && p.authorEmail.toLowerCase() === currentUser.email.toLowerCase())
+        );
+      }
+
+      // 3. Penpal pieces are private to author, connected penpals, or developer/admin
+      if (p.status === 'penpals') {
+        // Author can always see their own penpal letters
+        if (currentUser && (
+          p.authorId === currentUser.id ||
+          (Boolean(p.authorEmail) && Boolean(currentUser.email) && p.authorEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+          (Boolean(p.authorPenpalId) && Boolean(currentUser.penpalId) && p.authorPenpalId === currentUser.penpalId)
+        )) {
+          return true;
+        }
+
+        // Developer moderation access
+        if (isDeveloper) return true;
+
+        // Must be in current user's penpal circle
+        if (currentUser && currentUser.penpalIds && currentUser.penpalIds.length > 0) {
+          return currentUser.penpalIds.includes(p.authorPenpalId) || currentUser.penpalIds.includes(p.authorId);
+        }
+
+        return false;
+      }
+
+      return false;
+    };
+
+    // Filter by access permission first
+    let result = pieces.filter(canAccessPiece);
 
     // 1. Status Filter
     if (statusFilter === 'published') {
       result = result.filter(p => p.status === 'published');
     } else if (statusFilter === 'drafts') {
-      result = result.filter(p => p.status === 'draft' && (isDeveloper || (currentUser && (p.authorId === currentUser.id || p.authorEmail === currentUser.email))));
+      result = result.filter(p => p.status === 'draft');
     } else if (statusFilter === 'penpals') {
       result = result.filter(p => p.status === 'penpals');
     } else if (statusFilter === 'starred') {
       result = result.filter(p => p.starredByMe);
-    } else {
-      result = result.filter(p => {
-        if (p.status === 'published' || p.status === 'penpals') return true;
-        if (p.status === 'draft') {
-          return isDeveloper || (currentUser && (p.authorId === currentUser.id || p.authorEmail === currentUser.email));
-        }
-        return false;
-      });
     }
 
     // 2. Type Filter
@@ -271,31 +306,33 @@ function MainApp() {
       }}
     >
       {/* Top Header & Mobile Bottom Tab Navigation */}
-      <Navigation
-        currentView={currentView}
-        onSelectView={v => navigateTo(v)}
-        onOpenNewPiece={() => {
-          if (!isAuthenticated) {
-            navigateTo('auth');
-            return;
-          }
-          setPieceToEdit(null);
-          setIsEditorOpen(true);
-        }}
-        onOpenProfile={() => {
-          if (!isAuthenticated) {
-            navigateTo('auth');
-            return;
-          }
-          setIsProfileModalOpen(true);
-        }}
-        onOpenAuth={() => navigateTo('auth')}
-        isOnline={isOnline}
-        syncState={syncState}
-      />
+      <div className="no-print">
+        <Navigation
+          currentView={currentView}
+          onSelectView={v => navigateTo(v)}
+          onOpenNewPiece={() => {
+            if (!isAuthenticated) {
+              navigateTo('auth');
+              return;
+            }
+            setPieceToEdit(null);
+            setIsEditorOpen(true);
+          }}
+          onOpenProfile={() => {
+            if (!isAuthenticated) {
+              navigateTo('auth');
+              return;
+            }
+            setIsProfileModalOpen(true);
+          }}
+          onOpenAuth={() => navigateTo('auth')}
+          isOnline={isOnline}
+          syncState={syncState}
+        />
+      </div>
 
       {/* Main Content View Switcher */}
-      <main className="flex-1 pb-24 md:pb-12">
+      <main className="flex-1 pb-24 md:pb-12 print:hidden">
         {currentView === 'feed' && (
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
             {/* Thematic Gen Z Humanlike Art Illustration Banner */}
@@ -485,6 +522,8 @@ function MainApp() {
                 <p className="font-serif-literary text-sm text-black dark:text-zinc-300 font-bold max-w-sm mx-auto">
                   {searchQuery
                     ? `No pieces match "${searchQuery}". Try different keywords or clear your search.`
+                    : statusFilter === 'penpals'
+                    ? 'No letters from your penpal circle yet. Add penpals via Penpal Hub to read their private letters here!'
                     : 'There are no pieces in this category yet. Begin your creative log today!'}
                 </p>
                 <button

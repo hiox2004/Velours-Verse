@@ -41,11 +41,23 @@
 
 /* High-fidelity publication grade print stylesheet */
 @media print {
-  body {
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  *, *:before, *:after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html, body {
     background: #ffffff !important;
-    color: #111111 !important;
-    font-size: 12pt;
-    line-height: 1.6;
+    color: #09090b !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt;
   }
 
   .no-print {
@@ -56,26 +68,11 @@
     display: block !important;
   }
 
-  .print-container {
+  .print-sheet-root {
     width: 100% !important;
-    max-width: 720px !important;
+    max-width: 100% !important;
     margin: 0 auto !important;
-    padding: 2cm !important;
-    border: none !important;
+    page-break-inside: avoid !important;
     box-shadow: none !important;
-  }
-
-  .print-title {
-    font-family: 'Playfair Display', Georgia, serif !important;
-    font-size: 26pt !important;
-    margin-bottom: 0.5cm !important;
-    color: #000000 !important;
-  }
-
-  .print-body {
-    font-family: 'Cormorant Garamond', Georgia, serif !important;
-    font-size: 14pt !important;
-    line-height: 1.8 !important;
-    white-space: pre-wrap !important;
   }
 }

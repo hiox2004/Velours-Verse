@@ -54,184 +54,64 @@ export const SEED_USERS: UserProfile[] = [
     favoriteDrink: 'Oat Milk London Fog',
     favoriteQuote: '“Do not go gentle into that good night.” — Dylan Thomas',
     writingGoalWords: 1000,
-    penpalIds: ['PEN-7K3N1', 'PEN-4B8W2'],
+    penpalIds: [],
     role: 'developer',
     createdAt: '2026-09-01T10:00:00Z'
-  },
-  {
-    id: 'user_clara',
-    email: 'clara.verse@penpal.org',
-    displayName: 'Clara Delacroix',
-    penpalId: 'PEN-7K3N1',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    bio: 'Collecting morning mist in coffee cups. Writing about quiet coastal towns and vintage ribbons.',
-    favoriteDrink: 'Iced Rose Matcha',
-    favoriteQuote: '“Tell me, what is it you plan to do with your one wild and precious life?” — Mary Oliver',
-    writingGoalWords: 500,
-    penpalIds: ['PEN-8V2M9'],
-    role: 'writer',
-    createdAt: '2026-09-15T14:20:00Z'
-  },
-  {
-    id: 'user_julian',
-    email: 'julian.prose@penpal.org',
-    displayName: 'Julian K.',
-    penpalId: 'PEN-4B8W2',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    bio: 'Sci-fi short fiction writer & analog film photographer. Searching for starlight in train stations.',
-    favoriteDrink: 'Cortado with brown sugar',
-    favoriteQuote: '“The stars are not afraid to appear like fireflies.” — Rabindranath Tagore',
-    writingGoalWords: 750,
-    penpalIds: ['PEN-8V2M9'],
-    role: 'writer',
-    createdAt: '2026-10-02T08:12:00Z'
   }
 ];
 
-const SEED_PIECES: WritingPiece[] = [
-  {
-    id: 'piece-1',
-    title: 'The Architecture of Rain',
-    content: `Beneath the mansard roof, the drops compose
-A fugue of quiet tin and rusted zinc.
-No clock remembers where the afternoon goes;
-The teacup cools before I dare to think.
+export const DEVELOPER_START_LOG: WritingPiece = {
+  id: 'dev-manifesto-1',
+  title: 'An Architect’s Guide to Creative Expression on Velours & Verse',
+  content: `Welcome to Velours & Verse. We designed this quiet sanctuary for words that refuse to be rushed—an antidote to algorithms, character limits, and fleeting timelines.
 
-A sparrow perches on the fire escape,
-Feathers puffed against the autumn chill.
-Every fleeting sorrow takes its shape
-In shadows pooled along the window sill.
+Here is how you can explore your literary voice and showcase your creativity across our sanctuary:
 
-We write because the silence is too wide,
-Because the paper keeps what we forgot—
-The gentle tide that carried us inside,
-The wild, unhurried sweetness of the plot.`,
-    type: 'poem',
-    status: 'published',
-    authorId: 'user_clara',
-    authorDisplayName: 'Clara Delacroix',
-    authorPenpalId: 'PEN-7K3N1',
-    authorEmail: 'clara.verse@penpal.org',
-    authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2026-10-12T09:30:00Z',
-    updatedAt: '2026-10-12T11:00:00Z',
-    stars: 28,
-    starredByMe: true,
-    comments: [
-      {
-        id: 'c-1',
-        authorDisplayName: 'Julian K.',
-        authorPenpalId: 'PEN-4B8W2',
-        authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        text: 'The rhythm in the second stanza is so evocative. I felt the autumn chill immediately.',
-        createdAt: '2026-10-12T14:10:00Z'
-      }
-    ],
-    moodTags: ['Melancholy', 'Autumn', 'Tea & Rain'],
-    cardTint: 'rose',
-    wordCount: 88,
-    readTimeMinutes: 1,
-    synced: true
-  },
-  {
-    id: 'piece-2',
-    title: 'Subway Starlight and 2 AM Transistors',
-    content: `The neon tube above car 4 flickered at roughly sixty hertz—a buzz that sounded less like electricity and more like a cicada trapped inside an aluminum can.
+1. Write Freely Across Formats
+Whether you are drafting an unhurried poem, an honest journal reflection, a miniature short story, or midnight prose—give yourself permission to write without perfectionism. Set a gentle daily word goal and write in morning sunlight or late-night glow.
 
-Julian turned the cassette over. The magnetic tape was worn thin at the splice, but the piano line was still there, floating across three decades of static.
+2. Frame Your Atmosphere with Card Tints & Moods
+Words carry their own emotional temperature. Tint your manuscript cards in Rose Silk, Cyber Indigo, Matcha Foam, Midnight Violet, or Y2K Honey. Tag your thoughts with evocative moods like #Nocturnal, #RainyAfternoon, #TeaAndRain, or #Botanical so your voice resonates uniquely.
 
-"Next stop: Atlantic Avenue."
+3. The Sacred Penpal Circle (Private Letters)
+Creativity flourishes when shared with trusted minds. Exchange your unique Penpal Code (found in your Profile) with fellow writers. When saving a piece with "Penpal Circle" status, it is encrypted in slow literary confidence: strictly visible to you and your connected penpals, never leaking to the public sanctuary.
 
-A girl in an oversized sage knit sweater was sketching something into an unlined leather journal across the aisle. She didn't look up when the brakes shrieked against the curved rails. People who make art in public transit possess a specific brand of armor: they can inhabit a cathedral while standing three inches from a spilled energy drink.
+4. Publish to the Sanctuary
+When a verse is ready to meet the world, mark it "Published". It joins the global writing log for thinkers across the world to read, star, and reflect upon with quiet appreciation.
 
-He pulled his notebook out. Just three sentences before the doors slid open. Just three words before the city swallowed the cadence whole.`,
-    type: 'story',
-    status: 'published',
-    authorId: 'user_julian',
-    authorDisplayName: 'Julian K.',
-    authorPenpalId: 'PEN-4B8W2',
-    authorEmail: 'julian.prose@penpal.org',
-    authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2026-10-11T20:15:00Z',
-    updatedAt: '2026-10-11T20:45:00Z',
-    stars: 42,
-    starredByMe: false,
-    comments: [
-      {
-        id: 'c-2',
-        authorDisplayName: 'Clara Delacroix',
-        authorPenpalId: 'PEN-7K3N1',
-        authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-        text: '“They can inhabit a cathedral while standing three inches from a spilled energy drink” is brilliant writing!',
-        createdAt: '2026-10-11T22:30:00Z'
-      }
-    ],
-    moodTags: ['Cyber Y2K', 'Nocturnal', 'Cinematic'],
-    cardTint: 'starlight',
-    wordCount: 154,
-    readTimeMinutes: 1,
-    synced: true
-  },
-  {
-    id: 'piece-3',
-    title: 'Letters I Kept in the Book of Ferns',
-    content: `Dearest Penpal,
+5. Tangible Archival Keepsakes (PDF & Print)
+Turn your digital verses into physical artifacts. Open the Print Preview on any piece to generate vibrant, publication-grade prints and archival PDFs—complete with your bespoke author stamp, typographic framing, and tint palette.
 
-I pressed the silver fern we found by the canal between pages 144 and 145 of the botany compendium. It has turned the faint hue of sun-bleached parchment.
+Settle in, brew a warm cup, and write what matters.`,
+  type: 'prose',
+  status: 'published',
+  authorId: 'dev_architect',
+  authorDisplayName: 'Lead Developer · Aura',
+  authorPenpalId: 'PEN-8V2M9',
+  authorEmail: SUPER_ADMIN_EMAIL,
+  authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=velours_creator&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
+  createdAt: '2026-10-14T00:00:00Z',
+  updatedAt: '2026-10-14T00:00:00Z',
+  stars: 48,
+  starredByMe: false,
+  comments: [
+    {
+      id: 'c-welcome-1',
+      authorDisplayName: 'Velours Editorial',
+      authorPenpalId: 'PEN-ED01',
+      authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=editorial&backgroundColor=ffd5dc',
+      text: 'Every great writer began with a single unhurried sentence. Welcome to the sanctuary!',
+      createdAt: '2026-10-14T00:15:00Z'
+    }
+  ],
+  moodTags: ['Welcome Guide', 'Creative Expression', 'Writing Rituals', 'Penpal Letters'],
+  cardTint: 'rose',
+  wordCount: 285,
+  readTimeMinutes: 2,
+  synced: true
+};
 
-Sometimes I wonder whether words gain weight or lose it as years pass. When we write by hand, ink sinks into the wood pulp. In pixels, words remain suspended like dust motes in sunbeams.
-
-If you read this, make yourself a cup of genmaicha. The steam smells like toasted rice and good news.`,
-    type: 'journal',
-    status: 'penpals',
-    authorId: 'user_clara',
-    authorDisplayName: 'Clara Delacroix',
-    authorPenpalId: 'PEN-7K3N1',
-    authorEmail: 'clara.verse@penpal.org',
-    authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2026-10-10T16:00:00Z',
-    updatedAt: '2026-10-10T16:20:00Z',
-    stars: 19,
-    starredByMe: true,
-    comments: [],
-    moodTags: ['Matcha', 'Penpal Circle', 'Nostalgic'],
-    cardTint: 'matcha',
-    wordCount: 89,
-    readTimeMinutes: 1,
-    synced: true
-  },
-  {
-    id: 'piece-4',
-    title: 'The Constellation of Unfinished Sentences',
-    content: `[DRAFT IN PROGRESS - WORKSHOPPING]
-
-Is it possible that every discarded metaphor finds a home in the ionosphere?
-
-Tonight the observatory dome is open, but instead of tracking Alpha Centauri, I am tracing the shape of our conversation from last July.
-
-Notes to self:
-- Expand stanza 2 to describe the brass telescope gears
-- Change "indigo" to "obsidian velvet"
-- Add the sound of crickets in the background meadow`,
-    type: 'poem',
-    status: 'draft',
-    authorId: 'user_admin',
-    authorDisplayName: 'Aura Dev',
-    authorPenpalId: 'PEN-8V2M9',
-    authorEmail: 'aura.dev@veloursverse.app',
-    authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2026-10-13T04:15:00Z',
-    updatedAt: '2026-10-13T04:40:00Z',
-    stars: 3,
-    starredByMe: false,
-    comments: [],
-    moodTags: ['Midnight Thoughts', 'Draft', 'Astronomy'],
-    cardTint: 'lavender',
-    wordCount: 68,
-    readTimeMinutes: 1,
-    synced: true
-  }
-];
+const SEED_PIECES: WritingPiece[] = [DEVELOPER_START_LOG];
 
 export class StorageService {
   public static getPieces(): WritingPiece[] {
@@ -241,7 +121,25 @@ export class StorageService {
         localStorage.setItem(STORAGE_KEYS.PIECES, JSON.stringify(SEED_PIECES));
         return SEED_PIECES;
       }
-      return JSON.parse(data);
+      let parsed: WritingPiece[] = JSON.parse(data);
+      if (!Array.isArray(parsed)) {
+        return SEED_PIECES;
+      }
+      // Purge obsolete Clara Delacroix & Julian K testing entries
+      const cleaned = parsed.filter(p => 
+        p.authorId !== 'user_clara' && 
+        p.authorId !== 'user_julian' &&
+        p.authorDisplayName !== 'Clara Delacroix' &&
+        p.authorDisplayName !== 'Julian K.'
+      );
+      // Ensure the authoritative developer start log is present
+      if (!cleaned.some(p => p.id === DEVELOPER_START_LOG.id)) {
+        cleaned.unshift(DEVELOPER_START_LOG);
+      }
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEYS.PIECES, JSON.stringify(cleaned));
+      }
+      return cleaned;
     } catch {
       return SEED_PIECES;
     }
@@ -325,7 +223,13 @@ export class StorageService {
         localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(SEED_USERS));
         return SEED_USERS;
       }
-      return JSON.parse(data);
+      const parsed: UserProfile[] = JSON.parse(data);
+      if (!Array.isArray(parsed)) return SEED_USERS;
+      const cleaned = parsed.filter(u => u.id !== 'user_clara' && u.id !== 'user_julian');
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(cleaned));
+      }
+      return cleaned;
     } catch {
       return SEED_USERS;
     }
