@@ -103,7 +103,7 @@ export const DevAcademy: React.FC<DevAcademyProps> = ({
   const [noteTargetPenpal, setNoteTargetPenpal] = useState(authorNote?.targetAudience === 'all' ? 'PEN-ALL' : authorNote?.targetAudience || 'PEN-ALL');
   const [noteTargetName, setNoteTargetName] = useState(authorNote?.targetUserName || 'All Creative Writers');
   const [noteTag, setNoteTag] = useState(authorNote?.tag || 'Creator Dispatch');
-  const [noteAuthorName, setNoteAuthorName] = useState(currentUser.displayName && currentUser.displayName !== 'Guest Reader' ? currentUser.displayName : 'Meher');
+  const [noteAuthorName, setNoteAuthorName] = useState(currentUser.displayName && currentUser.displayName !== 'Guest Reader' ? currentUser.displayName : 'H');
   const [noteAuthorRole, setNoteAuthorRole] = useState(authorNote?.authorRole || 'Platform Creator & Lead Developer');
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [dispatchSuccessMessage, setDispatchSuccessMessage] = useState<string | null>(null);
@@ -1081,7 +1081,7 @@ CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXEC
                     type="text"
                     value={noteAuthorName}
                     onChange={e => setNoteAuthorName(e.target.value)}
-                    placeholder="e.g. Meher"
+                    placeholder="e.g. H"
                     className="w-full px-3 py-2 rounded-xl border-2 border-black dark:border-zinc-600 bg-white dark:bg-zinc-800 text-black dark:text-white text-xs font-bold"
                   />
                 </div>

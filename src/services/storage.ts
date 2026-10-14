@@ -15,7 +15,7 @@ export const DEFAULT_AUTHOR_NOTE: AuthorNote = {
   id: 'note_welcome_001',
   title: 'A Handwritten Note from the Creator 💌',
   content: 'Welcome to Velours & Verse. I designed this sanctuary for words that refuse to be rushed—for verses scribbled in morning light, stories drafted in train stations, and thoughts that keep you company past midnight.\n\nTreat your prose with kindness, cherish your penpals, and never apologize for the depth of your feeling. May this space inspire your most honest words.',
-  authorName: 'Meher',
+  authorName: 'H',
   authorRole: 'Platform Creator & Lead Developer',
   authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
   targetAudience: 'all',
@@ -47,8 +47,8 @@ export const SEED_USERS: UserProfile[] = [
   {
     id: 'user_admin',
     email: SUPER_ADMIN_EMAIL,
-    displayName: 'Meher',
-    penpalId: 'PEN-MEHER',
+    displayName: 'H',
+    penpalId: 'PEN-H',
     avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
     bio: 'Lead architect and developer of Velours & Verse. Writing quiet midnight verses between server builds.',
     favoriteDrink: 'Oat Milk London Fog',
@@ -86,8 +86,8 @@ Settle in, brew a warm cup, and write what matters.`,
   type: 'prose',
   status: 'published',
   authorId: 'dev_architect',
-  authorDisplayName: 'Lead Developer · Meher',
-  authorPenpalId: 'PEN-MEHER',
+  authorDisplayName: 'Lead Developer · H',
+  authorPenpalId: 'PEN-H',
   authorEmail: SUPER_ADMIN_EMAIL,
   authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
   createdAt: '2026-10-14T00:00:00Z',
@@ -237,9 +237,9 @@ export class StorageService {
         if (u.displayName === 'Aura Dev' || u.email === 'aura.dev@veloursverse.app' || u.displayName?.includes('Aura')) {
           return {
             ...u,
-            displayName: 'Meher',
+            displayName: 'H',
             email: SUPER_ADMIN_EMAIL,
-            penpalId: 'PEN-MEHER',
+            penpalId: 'PEN-H',
             avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4'
           };
         }
@@ -305,7 +305,7 @@ export class StorageService {
         return DEFAULT_AUTHOR_NOTE;
       }
       const parsed: AuthorNote = JSON.parse(data);
-      // Migrate legacy 'Aura Dev' to the actual developer Meher
+      // Migrate legacy 'Aura Dev' to the actual developer H
       if (parsed.authorName === 'Aura Dev' || parsed.authorName?.includes('Aura')) {
         const updated: AuthorNote = {
           ...parsed,

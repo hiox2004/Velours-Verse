@@ -399,7 +399,7 @@ export const PenpalHub: React.FC<PenpalHubProps> = ({
               No Penpals in your circle yet
             </h4>
             <p className="text-xs text-black dark:text-zinc-200 max-w-sm mx-auto font-bold">
-              Enter a writer's unique Penpal code above (e.g. <code className="font-mono text-pink-700 dark:text-pink-400 font-black">PEN-MEHER</code> for Lead Developer Meher) to exchange slow letters!
+              Enter a writer's unique Penpal code above (e.g. <code className="font-mono text-pink-700 dark:text-pink-400 font-black">PEN-H</code> for Lead Developer H) to exchange slow letters!
             </p>
           </div>
         )}

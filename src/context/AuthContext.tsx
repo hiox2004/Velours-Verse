@@ -214,7 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // 2. Fallback to local user directory and seeded authors (e.g. Lead Developer Meher PEN-MEHER)
+    // 2. Fallback to local user directory and seeded authors (e.g. Lead Developer H PEN-H)
     const allUsers = StorageService.getAllUsers();
     const targetUser = allUsers.find(u => {
       const uCode = (u.penpalId || '').toUpperCase();
