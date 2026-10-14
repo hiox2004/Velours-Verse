@@ -15,9 +15,9 @@ export const DEFAULT_AUTHOR_NOTE: AuthorNote = {
   id: 'note_welcome_001',
   title: 'A Handwritten Note from the Creator 💌',
   content: 'Welcome to Velours & Verse. I designed this sanctuary for words that refuse to be rushed—for verses scribbled in morning light, stories drafted in train stations, and thoughts that keep you company past midnight.\n\nTreat your prose with kindness, cherish your penpals, and never apologize for the depth of your feeling. May this space inspire your most honest words.',
-  authorName: 'Aura Dev',
+  authorName: 'Meher',
   authorRole: 'Platform Creator & Lead Developer',
-  authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
   targetAudience: 'all',
   targetUserName: 'All Writers & Dreamers',
   tag: 'Creator Dispatch',
@@ -46,13 +46,13 @@ export const ANONYMOUS_GUEST_PROFILE: UserProfile = {
 export const SEED_USERS: UserProfile[] = [
   {
     id: 'user_admin',
-    email: 'aura.dev@veloursverse.app',
-    displayName: 'Aura Dev',
-    penpalId: 'PEN-8V2M9',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    bio: 'Lead architect of Velours & Verse. Writing quiet midnight verses between server builds.',
+    email: SUPER_ADMIN_EMAIL,
+    displayName: 'Meher',
+    penpalId: 'PEN-MEHER',
+    avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
+    bio: 'Lead architect and developer of Velours & Verse. Writing quiet midnight verses between server builds.',
     favoriteDrink: 'Oat Milk London Fog',
-    favoriteQuote: '“Do not go gentle into that good night.” — Dylan Thomas',
+    favoriteQuote: '“Words that refuse to be rushed.”',
     writingGoalWords: 1000,
     penpalIds: [],
     role: 'developer',
@@ -86,10 +86,10 @@ Settle in, brew a warm cup, and write what matters.`,
   type: 'prose',
   status: 'published',
   authorId: 'dev_architect',
-  authorDisplayName: 'Lead Developer · Aura',
-  authorPenpalId: 'PEN-8V2M9',
+  authorDisplayName: 'Lead Developer · Meher',
+  authorPenpalId: 'PEN-MEHER',
   authorEmail: SUPER_ADMIN_EMAIL,
-  authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=velours_creator&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
+  authorAvatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4',
   createdAt: '2026-10-14T00:00:00Z',
   updatedAt: '2026-10-14T00:00:00Z',
   stars: 48,
@@ -126,19 +126,26 @@ export class StorageService {
         return SEED_PIECES;
       }
       // Purge obsolete Clara Delacroix & Julian K testing entries
-      const cleaned = parsed.filter(p => 
+      let cleaned = parsed.filter(p => 
         p.authorId !== 'user_clara' && 
         p.authorId !== 'user_julian' &&
         p.authorDisplayName !== 'Clara Delacroix' &&
         p.authorDisplayName !== 'Julian K.'
       );
-      // Ensure the authoritative developer start log is present
-      if (!cleaned.some(p => p.id === DEVELOPER_START_LOG.id)) {
+      // Ensure the authoritative developer start log is present and updated to current developer branding
+      const devLogIdx = cleaned.findIndex(p => p.id === DEVELOPER_START_LOG.id || p.authorDisplayName.includes('Aura') || p.authorEmail === SUPER_ADMIN_EMAIL);
+      if (devLogIdx >= 0) {
+        cleaned[devLogIdx] = {
+          ...cleaned[devLogIdx],
+          authorDisplayName: DEVELOPER_START_LOG.authorDisplayName,
+          authorPenpalId: DEVELOPER_START_LOG.authorPenpalId,
+          authorEmail: DEVELOPER_START_LOG.authorEmail,
+          authorAvatar: DEVELOPER_START_LOG.authorAvatar
+        };
+      } else {
         cleaned.unshift(DEVELOPER_START_LOG);
       }
-      if (cleaned.length !== parsed.length) {
-        localStorage.setItem(STORAGE_KEYS.PIECES, JSON.stringify(cleaned));
-      }
+      localStorage.setItem(STORAGE_KEYS.PIECES, JSON.stringify(cleaned));
       return cleaned;
     } catch {
       return SEED_PIECES;
@@ -225,10 +232,20 @@ export class StorageService {
       }
       const parsed: UserProfile[] = JSON.parse(data);
       if (!Array.isArray(parsed)) return SEED_USERS;
-      const cleaned = parsed.filter(u => u.id !== 'user_clara' && u.id !== 'user_julian');
-      if (cleaned.length !== parsed.length) {
-        localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(cleaned));
-      }
+      let cleaned = parsed.filter(u => u.id !== 'user_clara' && u.id !== 'user_julian');
+      cleaned = cleaned.map(u => {
+        if (u.displayName === 'Aura Dev' || u.email === 'aura.dev@veloursverse.app' || u.displayName?.includes('Aura')) {
+          return {
+            ...u,
+            displayName: 'Meher',
+            email: SUPER_ADMIN_EMAIL,
+            penpalId: 'PEN-MEHER',
+            avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=hiox2004&backgroundColor=ffdfbf,ffd5dc,d1d4f9,c0aede,b6e3f4'
+          };
+        }
+        return u;
+      });
+      localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(cleaned));
       return cleaned;
     } catch {
       return SEED_USERS;
@@ -287,7 +304,19 @@ export class StorageService {
         localStorage.setItem(STORAGE_KEYS.AUTHOR_NOTE, JSON.stringify(DEFAULT_AUTHOR_NOTE));
         return DEFAULT_AUTHOR_NOTE;
       }
-      return JSON.parse(data);
+      const parsed: AuthorNote = JSON.parse(data);
+      // Migrate legacy 'Aura Dev' to the actual developer Meher
+      if (parsed.authorName === 'Aura Dev' || parsed.authorName?.includes('Aura')) {
+        const updated: AuthorNote = {
+          ...parsed,
+          authorName: DEFAULT_AUTHOR_NOTE.authorName,
+          authorRole: DEFAULT_AUTHOR_NOTE.authorRole,
+          authorAvatar: DEFAULT_AUTHOR_NOTE.authorAvatar
+        };
+        localStorage.setItem(STORAGE_KEYS.AUTHOR_NOTE, JSON.stringify(updated));
+        return updated;
+      }
+      return parsed;
     } catch {
       return DEFAULT_AUTHOR_NOTE;
     }
