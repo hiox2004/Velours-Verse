@@ -187,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Normalize Penpal ID: handle missing "PEN-", lowercase, hashtags, spaces
     let cleanId = penpalIdInput.trim().toUpperCase().replace(/^[#\s]+/, '');
-    if (!cleanId.startsWith('PEN-') && cleanId.length === 5) {
+    if (!cleanId.startsWith('PEN-')) {
       cleanId = `PEN-${cleanId}`;
     }
     if (!cleanId) return { success: false, message: 'Please enter a valid Penpal ID.' };

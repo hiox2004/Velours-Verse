@@ -342,8 +342,8 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ piece, onClose }) =>
               <img
                 src={piece.authorAvatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${piece.authorDisplayName}&backgroundColor=ffdfbf,ffd5dc,d1d4f9`}
                 alt={piece.authorDisplayName}
-                className="w-10 h-10 rounded-xl object-cover ring-2 border border-black/10 shrink-0"
-                style={{ ringColor: tint.border }}
+                className="w-10 h-10 rounded-xl object-cover ring-2 border shrink-0"
+                style={{ borderColor: tint.border }}
               />
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
